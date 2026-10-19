@@ -1,6 +1,6 @@
 # ============================================
-# setup-structure.yml — 動態共享包打包腳本 (v13.7)
-# 用途：讀取 repos.json，自動打包並更新 STATE-INDEX (補齊 EOF)
+# setup-structure.yml — 動態共享包打包腳本 (v13.8)
+# 用途：讀取 repos.json，自動打包並更新 STATE-INDEX (全面補齊 HKT 時間戳)
 # ============================================
 
 name: Build Shared Packages
@@ -172,6 +172,8 @@ jobs:
           if [ -d "ai-kernel/docs/skills/W" ]; then
             echo "# W 包：Web App 領域技能" > "$OUTPUT"
             echo "" >> "$OUTPUT"
+            echo "> 生成時間：$(TZ=Asia/Hong_Kong date '+%Y-%m-%d %H:%M:%S') (HKT)" >> "$OUTPUT"
+            echo "" >> "$OUTPUT"
             for f in ai-kernel/docs/skills/W/W-0*.md; do
               if [ -f "$f" ]; then bash .github/workflows/append_file.sh "$f" "$OUTPUT" || true; fi
             done
@@ -206,6 +208,8 @@ jobs:
             OUTPUT="build-repo/${PKG_NO}-${SAFE_NAME}.md"
             
             echo "# 專案包：${SAFE_NAME}" > "$OUTPUT"
+            echo "" >> "$OUTPUT"
+            echo "> 生成時間：$(TZ=Asia/Hong_Kong date '+%Y-%m-%d %H:%M:%S') (HKT)" >> "$OUTPUT"
             echo "" >> "$OUTPUT"
             
             proj_docs_dir="external/${SAFE_NAME}/docs/projects/${SAFE_NAME}"
@@ -252,6 +256,7 @@ jobs:
           OUTPUT="build-repo/03-INFRA.md"
           echo "# 基礎設施總包 (INFRA)" > "$OUTPUT"
           echo "" >> "$OUTPUT"
+          echo "> 生成時間：$(TZ=Asia/Hong_Kong date '+%Y-%m-%d %H:%M:%S') (HKT)" >> "$OUTPUT"
           echo "> ⚠️ 給 AI 的指示：本包包含體系唯一腳本與各專案呼叫器。" >> "$OUTPUT"
           echo "" >> "$OUTPUT"
 
@@ -365,6 +370,6 @@ jobs:
 
 # ═══ EOF ═══
 # F: AI-infra/.github/workflows/setup-structure.yml
-# V: 1792389000
-# W: ai-system-20261019-010#162
+# V: 1792390000
+# W: ai-system-20261019-010#165
 # ═══ EOF ═══
