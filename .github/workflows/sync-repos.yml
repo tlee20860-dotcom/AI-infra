@@ -1,11 +1,11 @@
 name: Sync Repos List
 
 on:
-  workflow_dispatch: # 允許手動觸發
+  workflow_dispatch:
   schedule:
-    - cron: '0 0 * * *' # 每天半夜 00:00 自動執行
+    - cron: '0 0 * * *'
   repository_dispatch:
-    types: [sync-repos] # 允許其他專案觸發名單更新
+    types: [sync-repos]
 
 jobs:
   sync:
@@ -23,24 +23,29 @@ jobs:
         run: |
           mkdir -p config
           
-          # 初始化 JSON 結構
           echo '{' > config/repos.json
           echo '  "kernel": "tlee20860-dotcom/AI-kernel",' >> config/repos.json
           echo '  "general": "tlee20860-dotcom/AI-General",' >> config/repos.json
           echo '  "packages": "tlee20860-dotcom/AI-packages",' >> config/repos.json
           echo '  "projects": [' >> config/repos.json
 
-          # 使用 GitHub API 搜尋帶有 ai-systems topic 的倉庫
           REPOS=$(gh search repos --owner tlee20860-dotcom --topic ai-systems --json name,owner --jq '.[] | select(.name != "AI-kernel" and .name != "AI-General" and .name != "AI-infra" and .name != "AI-packages") | .owner.login + "/" + .name')
 
           FIRST=true
           for REPO in $REPOS; do
             echo "Checking $REPO..."
+            
+            # 先抓 main，抓不到再抓 master
             META=$(curl -s -H "Authorization: token $GH_TOKEN" "https://raw.githubusercontent.com/$REPO/main/meta.json")
+            if ! echo "$META" | grep -q "pkg_no"; then
+              META=$(curl -s -H "Authorization: token $GH_TOKEN" "https://raw.githubusercontent.com/$REPO/master/meta.json")
+            fi
             
             if echo "$META" | grep -q "pkg_no"; then
               DOMAIN=$(echo "$META" | jq -r '.domain')
               PKG_NO=$(echo "$META" | jq -r '.pkg_no')
+              CODE=$(echo "$META" | jq -r '.code // "-"')
+              DISPLAY=$(echo "$META" | jq -r '.display // "-"')
             else
               echo "  [WARN] $REPO 缺少有效的 meta.json，跳過。"
               continue
@@ -52,10 +57,11 @@ jobs:
               echo ',' >> config/repos.json
             fi
             
-            # 寫入專案資訊
             echo "    {" >> config/repos.json
             echo "      \"repo\": \"$REPO\"," >> config/repos.json
             echo "      \"domain\": \"$DOMAIN\"," >> config/repos.json
+            echo "      \"code\": \"$CODE\"," >> config/repos.json
+            echo "      \"display\": \"$DISPLAY\"," >> config/repos.json
             echo "      \"pkg_no\": \"$PKG_NO\"" >> config/repos.json
             echo -n "    }" >> config/repos.json
           done
@@ -79,9 +85,6 @@ jobs:
             echo "CHANGED=true" >> $GITHUB_ENV
           fi
 
-      # ==========================================
-      # 關鍵新增：如果名單有更新，立刻叫醒打包腳本
-      # ==========================================
       - name: Trigger Build Packages
         if: env.CHANGED == 'true'
         run: |
@@ -90,4 +93,3 @@ jobs:
             -H "Authorization: token ${{ secrets.CROSS_REPO_PAT }}" \
             https://api.github.com/repos/tlee20860-dotcom/AI-infra/dispatches \
             -d '{"event_type":"project-updated"}'
-          echo "已通知 AI-infra 執行 setup-structure.yml 重新打包"
