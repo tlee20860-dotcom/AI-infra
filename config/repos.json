@@ -3,19 +3,19 @@
   "general": "tlee20860-dotcom/AI-General",
   "packages": "tlee20860-dotcom/AI-packages",
   "projects": [
-    {
-      "repo": "tlee20860-dotcom/AI-OS",
-      "domain": "E",
-      "code": "ai-os",
-      "display": "AI-OS 系統",
-      "pkg_no": "91"
-    },
-    {
-      "repo": "tlee20860-dotcom/AI-WEB-APP-Family",
-      "domain": "W",
-      "code": "webapp",
-      "display": "家庭 webapp",
-      "pkg_no": "90"
-    }
-  ]
+  {
+    "repo": "tlee20860-dotcom/AI-WEB-APP-Family",
+    "domain": "W",
+    "code": "webapp",
+    "display": "家庭 webapp",
+    "pkg_no": "90"
+  },
+  {
+    "repo": "tlee20860-dotcom/AI-OS",
+    "domain": "E",
+    "code": "ai-os",
+    "display": "AI-OS 系統",
+    "pkg_no": "91"
+  }
+]
 }
