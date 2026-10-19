@@ -1,6 +1,6 @@
 # ============================================
-# setup-structure.yml — 動態共享包打包腳本 (v13.6)
-# 用途：讀取 repos.json，自動打包並更新 STATE-INDEX
+# setup-structure.yml — 動態共享包打包腳本 (v13.7)
+# 用途：讀取 repos.json，自動打包並更新 STATE-INDEX (補齊 EOF)
 # ============================================
 
 name: Build Shared Packages
@@ -121,6 +121,12 @@ jobs:
             echo "| Repo | 檔案 | Version | Writer |"
             echo "|---|---|---|---|"
             if [ -s "$TMP_TABLE" ]; then sort -t'|' -k3 -nr "$TMP_TABLE" | head -50; fi
+            echo ""
+            echo "/* ═══ EOF ═══"
+            echo "F: AI-General/docs/records/STATE-INDEX.md"
+            echo "V: $(date +%s)"
+            echo "W: github-actions[bot]"
+            echo "═══ */"
           } > "$OUTPUT"
 
       - name: "Step 2: 生成 A 包 (A00.md)"
@@ -260,7 +266,6 @@ jobs:
             fi
           done
 
-          # 移除 update-index.yml，只抓取目前實際存在的 yml
           for wf in setup-structure.yml sync-repos.yml migrate.yml append_file.sh; do
             if [ -f ".github/workflows/$wf" ]; then 
               echo "### 📄 檔案：$wf (infra)" >> "$OUTPUT"
@@ -281,7 +286,6 @@ jobs:
             echo "" >> "$OUTPUT"
           fi
 
-          # 收集 ai-kernel 的呼叫器與配置
           if [ -d "ai-kernel/.github/workflows" ]; then
             echo "## 🏢 體系層：AI-kernel 的呼叫器" >> "$OUTPUT"
             echo "" >> "$OUTPUT"
@@ -301,7 +305,6 @@ jobs:
             echo "" >> "$OUTPUT"
           fi
 
-          # 收集 AI-General 的呼叫器與配置
           if [ -d "AI-General/.github/workflows" ]; then
             echo "## 🏢 體系層：AI-General 的呼叫器" >> "$OUTPUT"
             echo "" >> "$OUTPUT"
@@ -321,7 +324,6 @@ jobs:
             echo "" >> "$OUTPUT"
           fi
 
-          # 收集專案的呼叫器與配置
           jq -c '.[]' /tmp/projects.json | while read -r row; do
             REPO=$(echo "$row" | jq -r '.repo')
             SAFE_NAME=$(echo "$REPO" | awk -F/ '{print $2}')
@@ -363,6 +365,6 @@ jobs:
 
 # ═══ EOF ═══
 # F: AI-infra/.github/workflows/setup-structure.yml
-# V: 1792384000
-# W: ai-system-20261019-010#148
+# V: 1792389000
+# W: ai-system-20261019-010#162
 # ═══ EOF ═══
