@@ -1,5 +1,5 @@
 # ============================================
-# setup-structure.yml — 動態共享包打包腳本 (v13.3)
+# setup-structure.yml — 動態共享包打包腳本 (v13.4)
 # 用途：讀取 repos.json，自動打包 A/R/U/W/S 及專案包 (不含索引生成)
 # ============================================
 
@@ -15,6 +15,11 @@ on:
       - '.github/workflows/setup-structure.yml'
       - '.github/scripts/**'
       - 'config/repos.json'
+
+# 防止多個 Action 同時執行導致 Git 衝突
+concurrency:
+  group: build-packages
+  cancel-in-progress: true
 
 jobs:
   build:
@@ -271,6 +276,6 @@ jobs:
 
 # ═══ EOF ═══
 # F: AI-infra/.github/workflows/setup-structure.yml
-# V: 1792381000
-# W: ai-system-20261019-010#139
+# V: 1792382000
+# W: ai-system-20261019-010#140
 # ═══ EOF ═══
