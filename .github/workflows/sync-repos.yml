@@ -1,0 +1,83 @@
+name: Sync Repos List
+
+on:
+  workflow_dispatch: # 允許手動觸發
+  schedule:
+    - cron: '0 0 * * *' # 每天半夜 00:00 自動執行
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout AI-infra
+        uses: actions/checkout@v4
+
+      - name: Generate repos.json
+        env:
+          GH_TOKEN: ${{ secrets.CROSS_REPO_PAT }}
+        run: |
+          mkdir -p config
+          
+          # 初始化 JSON 結構
+          echo '{' > config/repos.json
+          echo '  "kernel": "tlee20860-dotcom/AI-kernel",' >> config/repos.json
+          echo '  "general": "tlee20860-dotcom/AI-General",' >> config/repos.json
+          echo '  "packages": "tlee20860-dotcom/AI-packages",' >> config/repos.json
+          echo '  "projects": [' >> config/repos.json
+
+          # 使用 GitHub API 搜尋帶有 ai-systems topic 的倉庫
+          # 排除基礎設施倉庫，只留下專案倉庫
+          REPOS=$(gh search repos --owner tlee20860-dotcom --topic ai-systems --json name,owner --jq '.[] | select(.name != "AI-kernel" and .name != "AI-General" and .name != "AI-infra" and .name != "AI-packages") | .owner.login + "/" + .name')
+
+          FIRST=true
+          for REPO in $REPOS; do
+            echo "Checking $REPO..."
+            # 嘗試抓取該倉庫的 meta.json
+            META=$(curl -s -H "Authorization: token $GH_TOKEN" "https://raw.githubusercontent.com/$REPO/main/meta.json")
+            
+            if echo "$META" | grep -q "pkg_no"; then
+              DOMAIN=$(echo "$META" | jq -r '.domain')
+              PKG_NO=$(echo "$META" | jq -r '.pkg_no')
+            else
+              echo "  [WARN] $REPO 缺少有效的 meta.json，跳過。"
+              continue
+            fi
+
+            if [ "$FIRST" = true ]; then
+              FIRST=false
+            else
+              echo ',' >> config/repos.json
+            fi
+            
+            # 寫入專案資訊
+            echo "    {" >> config/repos.json
+            echo "      \"repo\": \"$REPO\"," >> config/repos.json
+            echo "      \"domain\": \"$DOMAIN\"," >> config/repos.json
+            echo "      \"pkg_no\": \"$PKG_NO\"" >> config/repos.json
+            echo -n "    }" >> config/repos.json
+          done
+
+          echo '' >> config/repos.json
+          echo '  ]' >> config/repos.json
+          echo '}' >> config/repos.json
+
+      - name: Commit repos.json
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add config/repos.json
+          if git diff --cached --quiet; then
+            echo "No changes to config/repos.json"
+          else
+            git commit -m "chore: auto-sync repos.json [skip ci]"
+            git push
+          fi
+
+# ═══ EOF ═══
+# F: AI-infra/.github/workflows/sync-repos.yml
+# V: 1792354000
+# W: ai-system-20261019-010#080
+# ═══ EOF ═══
