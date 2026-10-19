@@ -4,14 +4,14 @@
   "packages": "tlee20860-dotcom/AI-packages",
   "projects": [
     {
-      "repo": "tlee20860-dotcom/AI-WEB-APP-Family",
-      "domain": "W",
-      "pkg_no": "90"
-    },
-    {
       "repo": "tlee20860-dotcom/AI-OS",
       "domain": "E",
       "pkg_no": "91"
+    },
+    {
+      "repo": "tlee20860-dotcom/AI-WEB-APP-Family",
+      "domain": "W",
+      "pkg_no": "90"
     }
   ]
 }
