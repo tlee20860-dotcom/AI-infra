@@ -6,6 +6,10 @@ on:
     - cron: '0 0 * * *'
   repository_dispatch:
     types: [sync-repos]
+  push:
+    branches: [main, master]
+    paths:
+      - '.github/workflows/sync-repos.yml'
 
 jobs:
   sync:
@@ -35,7 +39,6 @@ jobs:
           for REPO in $REPOS; do
             echo "Checking $REPO..."
             
-            # 先抓 main，抓不到再抓 master
             META=$(curl -s -H "Authorization: token $GH_TOKEN" "https://raw.githubusercontent.com/$REPO/main/meta.json")
             if ! echo "$META" | grep -q "pkg_no"; then
               META=$(curl -s -H "Authorization: token $GH_TOKEN" "https://raw.githubusercontent.com/$REPO/master/meta.json")
@@ -93,3 +96,9 @@ jobs:
             -H "Authorization: token ${{ secrets.CROSS_REPO_PAT }}" \
             https://api.github.com/repos/tlee20860-dotcom/AI-infra/dispatches \
             -d '{"event_type":"project-updated"}'
+
+# ═══ EOF ═══
+# F: AI-infra/.github/workflows/sync-repos.yml
+# V: 1792381000
+# W: ai-system-20261019-010#139
+# ═══ EOF ═══
