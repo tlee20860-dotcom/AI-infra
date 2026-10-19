@@ -1,5 +1,5 @@
 # ============================================
-# setup-structure.yml — 動態共享包打包腳本 (v13.0)
+# setup-structure.yml — 動態共享包打包腳本 (v13.1)
 # 用途：讀取 repos.json，自動打包 A/R/U/W/S 及專案包
 # ============================================
 
@@ -26,7 +26,6 @@ jobs:
           echo "Reading repos.json..."
           cat config/repos.json
           
-          # 將 JSON 內容轉換為 GitHub Actions 可用的變數
           KERNEL=$(jq -r '.kernel' config/repos.json)
           GENERAL=$(jq -r '.general' config/repos.json)
           PACKAGES=$(jq -r '.packages' config/repos.json)
@@ -35,7 +34,6 @@ jobs:
           echo "GENERAL_REPO=$GENERAL" >> $GITHUB_ENV
           echo "PACKAGES_REPO=$PACKAGES" >> $GITHUB_ENV
           
-          # 儲存 projects 陣列以便後續使用
           jq -c '.projects' config/repos.json > /tmp/projects.json
 
       - name: Checkout ai-kernel
@@ -67,7 +65,13 @@ jobs:
             git clone --depth 1 "https://x-access-token:${{ secrets.CROSS_REPO_PAT }}@github.com/$REPO.git" "external/$SAFE_NAME" 2>/dev/null || echo "clone fail: $REPO"
           done
 
-      - name: "Step 1: 生成 STATE-INDEX.md"
+      - name: "Step 1: 清理舊共享包 (清道夫)"
+        run: |
+          # 清空 build-repo 裡所有 .md 檔案（保留 .git 目錄）
+          find build-repo -maxdepth 1 -name "*.md" -type f -delete
+          echo "舊共享包已清空。"
+
+      - name: "Step 2: 生成 STATE-INDEX.md"
         run: |
           OUTPUT="AI-General/docs/records/STATE-INDEX.md"
           TMP_TABLE="/tmp/state-index-files.txt"
@@ -110,7 +114,7 @@ jobs:
             echo "| C-00 | 2026-10-19 | A00 (ai-kernel) |"
           } > "$OUTPUT"
 
-      - name: "Step 2: 生成 A 包 (A00.md)"
+      - name: "Step 3: 生成 A 包 (A00.md)"
         run: |
           OUTPUT="build-repo/A00.md"
           echo "# A 包：啟動引導與角色定義" > "$OUTPUT"
@@ -118,10 +122,10 @@ jobs:
           echo "> 生成時間：$(TZ=Asia/Hong_Kong date '+%Y-%m-%d %H:%M:%S') (HKT)" >> "$OUTPUT"
           echo "" >> "$OUTPUT"
           if [ -f "ai-kernel/docs/a-guide/A-00-guide.md" ]; then 
-            bash AI-General/.github/workflows/append_file.sh "ai-kernel/docs/a-guide/A-00-guide.md" "$OUTPUT" || true
+            bash .github/workflows/append_file.sh "ai-kernel/docs/a-guide/A-00-guide.md" "$OUTPUT" || true
           fi
 
-      - name: "Step 3: 生成 R 包 (R00.md)"
+      - name: "Step 4: 生成 R 包 (R00.md)"
         run: |
           OUTPUT="build-repo/R00.md"
           echo "# R 包：規則總覽" > "$OUTPUT"
@@ -129,15 +133,14 @@ jobs:
           echo "> 生成時間：$(TZ=Asia/Hong_Kong date '+%Y-%m-%d %H:%M:%S') (HKT)" >> "$OUTPUT"
           echo "" >> "$OUTPUT"
           
-          # 合併順序：R00 -> R03 -> R02 -> R04 -> R01
           for f in R-00-rules R-03-terms R-02-patterns R-04-learning R-01-mapping; do
             FILE_PATH="ai-kernel/docs/r-rules/${f}.md"
             if [ -f "$FILE_PATH" ]; then 
-              bash AI-General/.github/workflows/append_file.sh "$FILE_PATH" "$OUTPUT" || true
+              bash .github/workflows/append_file.sh "$FILE_PATH" "$OUTPUT" || true
             fi
           done
 
-      - name: "Step 4: 生成 U 包 (U00.md)"
+      - name: "Step 5: 生成 U 包 (U00.md)"
         run: |
           OUTPUT="build-repo/U00.md"
           echo "# U 包：使用者通用描述" > "$OUTPUT"
@@ -145,21 +148,21 @@ jobs:
           echo "> 生成時間：$(TZ=Asia/Hong_Kong date '+%Y-%m-%d %H:%M:%S') (HKT)" >> "$OUTPUT"
           echo "" >> "$OUTPUT"
           if [ -f "ai-kernel/docs/u-profile/U-00-profile.md" ]; then 
-            bash AI-General/.github/workflows/append_file.sh "ai-kernel/docs/u-profile/U-00-profile.md" "$OUTPUT" || true
+            bash .github/workflows/append_file.sh "ai-kernel/docs/u-profile/U-00-profile.md" "$OUTPUT" || true
           fi
 
-      - name: "Step 4.1: 生成 W 包 (W00.md)（若存在）"
+      - name: "Step 6: 生成 W 包 (W00.md)（若存在）"
         run: |
           OUTPUT="build-repo/W00.md"
           if [ -d "ai-kernel/docs/skills/W" ]; then
             echo "# W 包：Web App 領域技能" > "$OUTPUT"
             echo "" >> "$OUTPUT"
             for f in ai-kernel/docs/skills/W/W-0*.md; do
-              if [ -f "$f" ]; then bash AI-General/.github/workflows/append_file.sh "$f" "$OUTPUT" || true; fi
+              if [ -f "$f" ]; then bash .github/workflows/append_file.sh "$f" "$OUTPUT" || true; fi
             done
           fi
 
-      - name: "Step 5: 生成 S00 包 (S00-ai-system.md)"
+      - name: "Step 7: 生成 S00 包 (S00-ai-system.md)"
         run: |
           OUTPUT="build-repo/S00-ai-system.md"
           echo "# AI 對話系統 - 體系狀態包" > "$OUTPUT"
@@ -176,10 +179,10 @@ jobs:
           echo "" >> "$OUTPUT"
 
           for f in AI-General/docs/records/SYSTEM-HANDOFF.md AI-General/docs/records/PROGRESS.md AI-General/docs/records/STATE-INDEX.md AI-General/docs/records/SYSTEM-CONCLUSION.md; do
-            if [ -f "$f" ]; then bash AI-General/.github/workflows/append_file.sh "$f" "$OUTPUT" || true; fi
+            if [ -f "$f" ]; then bash .github/workflows/append_file.sh "$f" "$OUTPUT" || true; fi
           done
 
-      - name: "Step 6: 生成專案包 (動態)"
+      - name: "Step 8: 生成專案包 (動態)"
         run: |
           jq -c '.[]' /tmp/projects.json | while read -r row; do
             REPO=$(echo "$row" | jq -r '.repo')
@@ -190,24 +193,21 @@ jobs:
             echo "# 專案包：${SAFE_NAME}" > "$OUTPUT"
             echo "" >> "$OUTPUT"
             
-            # 抓取專案內的 P-* 文件
             proj_docs_dir="external/${SAFE_NAME}/docs/projects/${SAFE_NAME}"
             if [ -d "$proj_docs_dir" ]; then
               for prefix in P-01 P-02 P-05 P-06 P-07 P-08 P-09 P-12 P-13 P-98 P-99; do
                 for f in ${proj_docs_dir}/${prefix}-*.md; do
-                  if [ -f "$f" ]; then bash AI-General/.github/workflows/append_file.sh "$f" "$OUTPUT" || true; fi
+                  if [ -f "$f" ]; then bash .github/workflows/append_file.sh "$f" "$OUTPUT" || true; fi
                 done
               done
             fi
             
-            # AI-OS 特殊處理 (抓取 E-*.md)
             if [ "$SAFE_NAME" == "AI-OS" ]; then
               for f in external/AI-OS/E-*.md; do
-                if [ -f "$f" ]; then bash AI-General/.github/workflows/append_file.sh "$f" "$OUTPUT" || true; fi
+                if [ -f "$f" ]; then bash .github/workflows/append_file.sh "$f" "$OUTPUT" || true; fi
               done
             fi
 
-            # 專案程式碼檔案樹
             if [ -d "external/${SAFE_NAME}" ]; then
               (
                 cd "external/${SAFE_NAME}" || exit 0
@@ -226,7 +226,7 @@ jobs:
             fi
           done
 
-      - name: "Step 7: 生成基礎設施總包 (03-INFRA.md)"
+      - name: "Step 9: 生成基礎設施總包 (03-INFRA.md)"
         run: |
           OUTPUT="build-repo/03-INFRA.md"
           echo "# 基礎設施總包 (INFRA)" > "$OUTPUT"
@@ -234,18 +234,18 @@ jobs:
           echo "> ⚠️ 給 AI 的指示：本包包含體系唯一腳本與各專案呼叫器。" >> "$OUTPUT"
           echo "" >> "$OUTPUT"
 
-          echo "## 🏢 體系層：AI-General（唯一腳本）" >> "$OUTPUT"
+          echo "## 🏢 體系層：AI-infra（唯一腳本）" >> "$OUTPUT"
           echo "" >> "$OUTPUT"
           
-          if [ -f "AI-General/.github/scripts/apply_patch.py" ]; then 
+          if [ -f ".github/scripts/apply_patch.py" ]; then 
             echo "### 📄 檔案：apply_patch.py" >> "$OUTPUT"
-            bash AI-General/.github/workflows/append_file.sh "AI-General/.github/scripts/apply_patch.py" "$OUTPUT" || true
+            bash .github/workflows/append_file.sh ".github/scripts/apply_patch.py" "$OUTPUT" || true
           fi
           
-          if [ -f "AI-infra/.github/workflows/setup-structure.yml" ]; then 
+          if [ -f ".github/workflows/setup-structure.yml" ]; then 
             echo "" >> "$OUTPUT"
             echo "### 📄 檔案：setup-structure.yml (infra)" >> "$OUTPUT"
-            bash AI-General/.github/workflows/append_file.sh ".github/workflows/setup-structure.yml" "$OUTPUT" || true
+            bash .github/workflows/append_file.sh ".github/workflows/setup-structure.yml" "$OUTPUT" || true
           fi
 
           jq -c '.[]' /tmp/projects.json | while read -r row; do
@@ -260,14 +260,14 @@ jobs:
                 find .github/workflows -type f -name "*.yml" | sort | while read -r file; do 
                   echo "### 📄 檔案：${file}" >> "../../$OUTPUT"
                   echo "" >> "../../$OUTPUT"
-                  bash "../../AI-General/.github/workflows/append_file.sh" "$file" "../../$OUTPUT" || true
+                  bash "../../.github/workflows/append_file.sh" "$file" "../../$OUTPUT" || true
                   echo "" >> "../../$OUTPUT"
                 done
               ) || true
             fi
           done
 
-      - name: "Step 8: 上傳共享包"
+      - name: "Step 10: 上傳共享包"
         run: |
           cd AI-General
           git config user.name "github-actions[bot]"
@@ -280,9 +280,3 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add -A
           git diff --cached --quiet || (git commit -m "chore: auto-build packages [skip ci]" && git push)
-
-# ═══ EOF ═══
-# F: AI-infra/.github/workflows/setup-structure.yml
-# V: 1792356000
-# W: ai-system-20261019-010#083
-# ═══ EOF ═══
