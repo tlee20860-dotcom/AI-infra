@@ -19,6 +19,8 @@ jobs:
     steps:
       - name: Checkout AI-infra
         uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.CROSS_REPO_PAT }}
 
       - name: Read Repos Config
         id: config
@@ -158,6 +160,12 @@ jobs:
               done
             fi
             
+            if [ -f "external/${SAFE_NAME}/meta.json" ]; then
+              echo "" >> "$OUTPUT"
+              echo "## meta.json" >> "$OUTPUT"
+              bash .github/workflows/append_file.sh "external/${SAFE_NAME}/meta.json" "$OUTPUT" || true
+            fi
+
             if [ "$SAFE_NAME" == "AI-OS" ]; then
               for f in external/AI-OS/E-*.md; do
                 if [ -f "$f" ]; then bash .github/workflows/append_file.sh "$f" "$OUTPUT" || true; fi
@@ -197,11 +205,35 @@ jobs:
             echo "### 📄 檔案：apply_patch.py" >> "$OUTPUT"
             bash .github/workflows/append_file.sh ".github/scripts/apply_patch.py" "$OUTPUT" || true
           fi
+
+          if [ -f ".github/scripts/validate_delivery.py" ]; then 
+            echo "" >> "$OUTPUT"
+            echo "### 📄 檔案：validate_delivery.py" >> "$OUTPUT"
+            bash .github/workflows/append_file.sh ".github/scripts/validate_delivery.py" "$OUTPUT" || true
+          fi
           
           if [ -f ".github/workflows/setup-structure.yml" ]; then 
             echo "" >> "$OUTPUT"
             echo "### 📄 檔案：setup-structure.yml (infra)" >> "$OUTPUT"
             bash .github/workflows/append_file.sh ".github/workflows/setup-structure.yml" "$OUTPUT" || true
+          fi
+
+          if [ -f ".github/workflows/sync-repos.yml" ]; then 
+            echo "" >> "$OUTPUT"
+            echo "### 📄 檔案：sync-repos.yml (infra)" >> "$OUTPUT"
+            bash .github/workflows/append_file.sh ".github/workflows/sync-repos.yml" "$OUTPUT" || true
+          fi
+
+          if [ -f ".github/workflows/migrate.yml" ]; then 
+            echo "" >> "$OUTPUT"
+            echo "### 📄 檔案：migrate.yml (infra)" >> "$OUTPUT"
+            bash .github/workflows/append_file.sh ".github/workflows/migrate.yml" "$OUTPUT" || true
+          fi
+
+          if [ -f ".github/workflows/append_file.sh" ]; then 
+            echo "" >> "$OUTPUT"
+            echo "### 📄 檔案：append_file.sh (infra)" >> "$OUTPUT"
+            bash .github/workflows/append_file.sh ".github/workflows/append_file.sh" "$OUTPUT" || true
           fi
 
           jq -c '.[]' /tmp/projects.json | while read -r row; do
@@ -230,3 +262,9 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add -A
           git diff --cached --quiet || (git commit -m "chore: auto-build packages [skip ci]" && git push)
+
+# ═══ EOF ═══
+# F: AI-infra/.github/workflows/setup-structure.yml
+# V: 1792380000
+# W: ai-system-20261019-011#003
+# ═══ EOF ═══
