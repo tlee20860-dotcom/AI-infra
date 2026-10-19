@@ -21,15 +21,24 @@ echo "" >> "$TARGET"
 echo "## 📄 $SOURCE" >> "$TARGET"
 echo "" >> "$TARGET"
 
-# 寫入檔案內容（防呆：如果內部有三反引號，跳過包裹，避免 Markdown 渲染破裂）
-if grep -q '```' "$SOURCE"; then
+# 取得副檔名
+EXT="${SOURCE##*.}"
+
+# 寫入檔案內容（防呆：如果是 .md 檔且內部有三反引號，跳過包裹；其他副檔名一律強制包裹）
+if [ "$EXT" = "md" ] && grep -q '\`\`\`' "$SOURCE"; then
     cat "$SOURCE" >> "$TARGET"
 else
-    echo '```' >> "$TARGET"
+    echo "\`\`\`$EXT" >> "$TARGET"
     cat "$SOURCE" >> "$TARGET"
-    echo '```' >> "$TARGET"
+    echo "\`\`\`" >> "$TARGET"
 fi
 
 # 寫入結束標記
 echo "" >> "$TARGET"
 echo "<!-- === FILE END: $SOURCE === -->" >> "$TARGET"
+
+# ═══ EOF ═══
+# F: AI-infra/.github/workflows/append_file.sh
+# V: 1792383600
+# W: ai-system-20261019-011#004
+# ═══ EOF ═══
