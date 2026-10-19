@@ -1,6 +1,6 @@
 # ============================================
-# setup-structure.yml — 動態共享包打包腳本 (v16.0)
-# 用途：合併 sync-repos 與打包邏輯，徹底消除觸發衝突
+# setup-structure.yml — 動態共享包打包腳本 (v16.1)
+# 用途：移除 concurrency 解決 GitHub 排隊死鎖
 # ============================================
 
 name: Build Shared Packages
@@ -15,9 +15,10 @@ on:
       - '.github/workflows/setup-structure.yml'
       - '.github/scripts/**'
 
-concurrency:
-  group: build-packages
-  cancel-in-progress: true
+# ⚠️ 已移除 concurrency 防止排隊死鎖
+# concurrency:
+#   group: build-packages
+#   cancel-in-progress: true
 
 jobs:
   build:
@@ -432,6 +433,6 @@ jobs:
 
 # ═══ EOF ═══
 # F: AI-infra/.github/workflows/setup-structure.yml
-# V: 1792413000
-# W: ai-system-20261019-010#210
+# V: 1792414000
+# W: ai-system-20261019-010#215
 # ═══ EOF ═══
