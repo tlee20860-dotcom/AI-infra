@@ -1,4 +1,4 @@
-name: Apply Patch (AI-infra)
+name: Apply Patch (Project)
 on:
   workflow_dispatch:
   push:
@@ -14,14 +14,20 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.CROSS_REPO_PAT }}
 
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.x"
 
+      - name: Download central script
+        run: |
+          curl -sL https://raw.githubusercontent.com/tlee20860-dotcom/AI-infra/main/.github/scripts/apply_patch.py -o /tmp/apply_patch.py
+
       - name: Run Patch
-        run: python3 .github/scripts/apply_patch.py
+        run: python3 /tmp/apply_patch.py
 
       - name: Commit and push
         run: |
@@ -34,6 +40,6 @@ jobs:
 
 # ═══ EOF ═══
 # F: AI-infra/.github/workflows/apply-patch.yml
-# V: 1792358000
-# W: ai-system-20261019-010#088
+# V: 1792380000
+# W: ai-system-20261019-011#001
 # ═══ EOF ═══
