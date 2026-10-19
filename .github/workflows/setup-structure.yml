@@ -1,6 +1,6 @@
 # ============================================
-# setup-structure.yml — 動態共享包打包腳本 (v13.1)
-# 用途：讀取 repos.json，自動打包 A/R/U/W/S 及專案包
+# setup-structure.yml — 動態共享包打包腳本 (v13.2)
+# 用途：讀取 repos.json，自動打包 A/R/U/W/S 及專案包 (不含索引生成)
 # ============================================
 
 name: Build Shared Packages
@@ -67,54 +67,10 @@ jobs:
 
       - name: "Step 1: 清理舊共享包 (清道夫)"
         run: |
-          # 清空 build-repo 裡所有 .md 檔案（保留 .git 目錄）
           find build-repo -maxdepth 1 -name "*.md" -type f -delete
           echo "舊共享包已清空。"
 
-      - name: "Step 2: 生成 STATE-INDEX.md"
-        run: |
-          OUTPUT="AI-General/docs/records/STATE-INDEX.md"
-          TMP_TABLE="/tmp/state-index-files.txt"
-          > "$TMP_TABLE"
-          
-          for REPO_DIR in "AI-General" "ai-kernel"; do
-            if [ -d "$REPO_DIR/docs" ]; then
-              find "$REPO_DIR/docs" -type f -name "*.md" -not -path "*/.git/*" | while read -r f; do
-                V=$(tail -n 15 "$f" | grep -oE '^V: *[0-9]+' | head -1 | sed 's/^V: *//' || true)
-                if [ -z "$V" ]; then continue; fi
-                W=$(tail -n 15 "$f" | grep -oE '^W: *[^ ]+' | head -1 | sed 's/^W: *//' || true)
-                REPO_NAME="AI-General"
-                if [[ "$f" == ai-kernel/* ]]; then REPO_NAME="ai-kernel"; fi
-                CLEAN_F=${f#ai-kernel/}
-                echo "$REPO_NAME|$CLEAN_F|$V|$W" >> "$TMP_TABLE"
-              done
-            fi
-          done || true
-
-          {
-            echo "# STATE-INDEX"
-            echo ""
-            echo "## 一、專案總覽"
-            echo "| 專案顯示名稱 | code | domain | package_no | repo |"
-            echo "|---|---|---|---|---|"
-            jq -r '.[] | "| - | - | \(.domain) | \(.pkg_no) | \(.repo) |"' /tmp/projects.json
-            echo ""
-            echo "## 二、檔案清單"
-            echo "| Repo | 檔案 | Version | Writer |"
-            echo "|---|---|---|---|"
-            if [ -s "$TMP_TABLE" ]; then sort -t'|' -k3 -nr "$TMP_TABLE" | head -50; fi
-            echo ""
-            echo "## 三、歷史歸屬"
-            echo "| 檔案 | 舊版本 | 舊 Writer | 新版本 | 新 Writer | 取代時間 |"
-            echo "|---|---|---|---|---|---|"
-            echo ""
-            echo "## 四、已廢除檔案"
-            echo "| 檔案 | 廢除時間 | 內容去向 |"
-            echo "|---|---|---|"
-            echo "| C-00 | 2026-10-19 | A00 (ai-kernel) |"
-          } > "$OUTPUT"
-
-      - name: "Step 3: 生成 A 包 (A00.md)"
+      - name: "Step 2: 生成 A 包 (A00.md)"
         run: |
           OUTPUT="build-repo/A00.md"
           echo "# A 包：啟動引導與角色定義" > "$OUTPUT"
@@ -125,7 +81,7 @@ jobs:
             bash .github/workflows/append_file.sh "ai-kernel/docs/a-guide/A-00-guide.md" "$OUTPUT" || true
           fi
 
-      - name: "Step 4: 生成 R 包 (R00.md)"
+      - name: "Step 3: 生成 R 包 (R00.md)"
         run: |
           OUTPUT="build-repo/R00.md"
           echo "# R 包：規則總覽" > "$OUTPUT"
@@ -140,7 +96,7 @@ jobs:
             fi
           done
 
-      - name: "Step 5: 生成 U 包 (U00.md)"
+      - name: "Step 4: 生成 U 包 (U00.md)"
         run: |
           OUTPUT="build-repo/U00.md"
           echo "# U 包：使用者通用描述" > "$OUTPUT"
@@ -151,7 +107,7 @@ jobs:
             bash .github/workflows/append_file.sh "ai-kernel/docs/u-profile/U-00-profile.md" "$OUTPUT" || true
           fi
 
-      - name: "Step 6: 生成 W 包 (W00.md)（若存在）"
+      - name: "Step 5: 生成 W 包 (W00.md)（若存在）"
         run: |
           OUTPUT="build-repo/W00.md"
           if [ -d "ai-kernel/docs/skills/W" ]; then
@@ -162,7 +118,7 @@ jobs:
             done
           fi
 
-      - name: "Step 7: 生成 S00 包 (S00-ai-system.md)"
+      - name: "Step 6: 生成 S00 包 (S00-ai-system.md)"
         run: |
           OUTPUT="build-repo/S00-ai-system.md"
           echo "# AI 對話系統 - 體系狀態包" > "$OUTPUT"
@@ -182,7 +138,7 @@ jobs:
             if [ -f "$f" ]; then bash .github/workflows/append_file.sh "$f" "$OUTPUT" || true; fi
           done
 
-      - name: "Step 8: 生成專案包 (動態)"
+      - name: "Step 7: 生成專案包 (動態)"
         run: |
           jq -c '.[]' /tmp/projects.json | while read -r row; do
             REPO=$(echo "$row" | jq -r '.repo')
@@ -226,7 +182,7 @@ jobs:
             fi
           done
 
-      - name: "Step 9: 生成基礎設施總包 (03-INFRA.md)"
+      - name: "Step 8: 生成基礎設施總包 (03-INFRA.md)"
         run: |
           OUTPUT="build-repo/03-INFRA.md"
           echo "# 基礎設施總包 (INFRA)" > "$OUTPUT"
@@ -267,15 +223,9 @@ jobs:
             fi
           done
 
-      - name: "Step 10: 上傳共享包"
+      - name: "Step 9: 上傳共享包"
         run: |
-          cd AI-General
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add docs/records/STATE-INDEX.md
-          git diff --cached --quiet || (git commit -m "chore: auto-update STATE-INDEX [skip ci]" && git push)
-
-          cd ../build-repo
+          cd build-repo
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add -A
