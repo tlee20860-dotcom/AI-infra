@@ -1,0 +1,30 @@
+# ============================================
+# notify.yml — AI-kernel 更新時通知 AI-infra
+# ============================================
+name: Notify AI-infra
+
+on:
+  push:
+    branches: [main, master]
+    paths:
+      - '**.md'
+      - '.github/workflows/notify.yml'
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger AI-infra build
+        run: |
+          curl -X POST \
+            -H "Accept: application/vnd.github.v3+json" \
+            -H "Authorization: token ${{ secrets.CROSS_REPO_PAT }}" \
+            https://api.github.com/repos/tlee20860-dotcom/AI-infra/dispatches \
+            -d '{"event_type":"project-updated"}'
+          echo "已通知 AI-infra 重新建置"
+
+# ═══ EOF ═══
+# F: AI-kernel/.github/workflows/notify.yml
+# V: 1792381000
+# W: ai-system-20261019-010#139
+# ═══ EOF ═══
