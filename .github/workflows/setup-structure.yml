@@ -1,5 +1,5 @@
 # ============================================
-# setup-structure.yml — 動態共享包打包腳本 (v13.8)
+# setup-structure.yml — 動態共享包打包腳本 (v13.9)
 # 用途：讀取 repos.json，自動打包並更新 STATE-INDEX (全面補齊 HKT 時間戳)
 # ============================================
 
@@ -111,6 +111,8 @@ jobs:
 
           {
             echo "# STATE-INDEX"
+            echo ""
+            echo "> 生成時間：$(TZ=Asia/Hong_Kong date '+%Y-%m-%d %H:%M:%S') (HKT)"
             echo ""
             echo "## 一、專案總覽"
             echo "| 專案顯示名稱 | code | domain | package_no | repo |"
@@ -370,6 +372,6 @@ jobs:
 
 # ═══ EOF ═══
 # F: AI-infra/.github/workflows/setup-structure.yml
-# V: 1792390000
-# W: ai-system-20261019-010#165
+# V: 1792394000
+# W: ai-system-20261019-010#171
 # ═══ EOF ═══
