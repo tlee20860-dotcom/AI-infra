@@ -25,16 +25,15 @@ jobs:
       - name: Checkout ai-kernel
         uses: actions/checkout@v4
         with:
-          repository: tlee20860-dotcom/ai-kernel
+          repository: tlee20860-dotcom/AI-kernel
           token: ${{ secrets.CROSS_REPO_PAT }}
           path: ai-kernel
 
       - name: Move W-Package to ai-kernel
         run: |
-          echo "=== 搬移 W 技能包至 ai-kernel ==="
+          echo "=== 搬移 W 技能包至 AI-kernel ==="
           mkdir -p ai-kernel/docs/skills/W
           
-          # 如果 AI-General 存在 W 檔，則複製過去
           if [ -d "AI-General/docs/skills/W" ]; then
             cp -r AI-General/docs/skills/W/* ai-kernel/docs/skills/W/ || true
             echo "[OK] W 技能包已複製。"
@@ -42,7 +41,6 @@ jobs:
             echo "[WARNING] 在 AI-General 找不到 docs/skills/W，跳過複製。"
           fi
 
-          # 提交 ai-kernel 的變更
           cd ai-kernel
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
@@ -63,23 +61,19 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           
-          # 刪除舊的 common 與 skills 目錄（-r 遞迴，--ignore-unmatch 防止檔案不存在時報錯）
-          git rm -r --ignore-unmatch docs/common/
-          git rm -r --ignore-unmatch docs/skills/
-          
-          # 刪除舊的打包 Workflow (因為即將轉移到 ai-infra)
-          git rm --ignore-unmatch .github/workflows/setup-structure.yml
+          git rm -r --ignore-unmatch docs/common/ || true
+          git rm -r --ignore-unmatch docs/skills/ || true
           
           if git diff --cached --quiet; then
             echo "AI-General 無變更，不需 commit。"
           else
-            git commit -m "chore: cleanup old docs and setup-structure.yml [skip ci]"
+            git commit -m "chore: cleanup old docs [skip ci]"
             git push
             echo "[OK] AI-General 已清理並 push。"
           fi
 
 # ═══ EOF ═══
-# F: ai-infra/.github/workflows/migrate.yml
-# V: 1792353000
-# W: ai-system-20261019-010#071
+# F: AI-infra/.github/workflows/migrate.yml
+# V: 1792359000
+# W: ai-system-20261019-010#095
 # ═══ EOF ═══
