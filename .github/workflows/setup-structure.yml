@@ -1,6 +1,6 @@
 # ============================================
-# setup-structure.yml — 動態共享包打包腳本 (v15.4)
-# 用途：強制建立目錄並安全下載 workflow 檔案
+# setup-structure.yml — 動態共享包打包腳本 (v16.0)
+# 用途：合併 sync-repos 與打包邏輯，徹底消除觸發衝突
 # ============================================
 
 name: Build Shared Packages
@@ -14,7 +14,6 @@ on:
     paths:
       - '.github/workflows/setup-structure.yml'
       - '.github/scripts/**'
-      - 'config/repos.json'
 
 concurrency:
   group: build-packages
@@ -32,23 +31,65 @@ jobs:
         with:
           token: ${{ secrets.CROSS_REPO_PAT }}
 
+      - name: "Step 0: 同步 Repos 名單 (Sync Repos List)"
+        env:
+          GH_TOKEN: ${{ secrets.CROSS_REPO_PAT }}
+        run: |
+          mkdir -p config
+          
+          echo '[' > /tmp/projects_array.json
+          REPOS=$(gh search repos --owner tlee20860-dotcom --topic ai-systems --json name,owner --jq '.[] | select(.name != "AI-kernel" and .name != "AI-General" and .name != "AI-infra" and .name != "AI-packages") | .owner.login + "/" + .name')
+          
+          FIRST=true
+          for REPO in $REPOS; do
+            META=$(curl -s -H "Authorization: token $GH_TOKEN" "https://raw.githubusercontent.com/$REPO/main/meta.json")
+            if ! echo "$META" | grep -q "pkg_no"; then
+              META=$(curl -s -H "Authorization: token $GH_TOKEN" "https://raw.githubusercontent.com/$REPO/master/meta.json")
+            fi
+            
+            if echo "$META" | grep -q "pkg_no"; then
+              DOMAIN=$(echo "$META" | jq -r '.domain')
+              PKG_NO=$(echo "$META" | jq -r '.pkg_no')
+              CODE=$(echo "$META" | jq -r '.code // "-"')
+              DISPLAY=$(echo "$META" | jq -r '.display // "-"')
+            else
+              continue
+            fi
+
+            if [ "$FIRST" = true ]; then FIRST=false; else echo ',' >> /tmp/projects_array.json; fi
+            echo "    {\"repo\": \"$REPO\", \"domain\": \"$DOMAIN\", \"code\": \"$CODE\", \"display\": \"$DISPLAY\", \"pkg_no\": \"$PKG_NO\"}" >> /tmp/projects_array.json
+          done
+          echo '' >> /tmp/projects_array.json
+          echo ']' >> /tmp/projects_array.json
+
+          # 使用 jq 進行排序（按 pkg_no）
+          echo '{' > config/repos.json
+          echo '  "kernel": "tlee20860-dotcom/AI-kernel",' >> config/repos.json
+          echo '  "general": "tlee20860-dotcom/AI-General",' >> config/repos.json
+          echo '  "packages": "tlee20860-dotcom/AI-packages",' >> config/repos.json
+          echo -n '  "projects": ' >> config/repos.json
+          jq 'sort_by(.pkg_no)' /tmp/projects_array.json >> config/repos.json
+          echo '}' >> config/repos.json
+          
+          # 提交 repos.json 至倉庫備份
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add config/repos.json
+          git diff --cached --quiet || (git commit -m "chore: auto-sync repos.json [skip ci]" && git push)
+
       - name: Read Repos Config
         id: config
         run: |
-          echo "Reading repos.json..."
           cat config/repos.json
-          
           KERNEL=$(jq -r '.kernel' config/repos.json)
           GENERAL=$(jq -r '.general' config/repos.json)
           PACKAGES=$(jq -r '.packages' config/repos.json)
-          
           echo "KERNEL_REPO=$KERNEL" >> $GITHUB_ENV
           echo "GENERAL_REPO=$GENERAL" >> $GITHUB_ENV
           echo "PACKAGES_REPO=$PACKAGES" >> $GITHUB_ENV
-          
           jq -c '.projects' config/repos.json > /tmp/projects.json
 
-      - name: Checkout ai-kernel (git clone main)
+      - name: Checkout AI-kernel (git clone main)
         run: |
           git clone --depth 1 -b main "https://x-access-token:${{ secrets.CROSS_REPO_PAT }}@github.com/${{ env.KERNEL_REPO }}.git" AI-kernel || \
           git clone --depth 1 -b master "https://x-access-token:${{ secrets.CROSS_REPO_PAT }}@github.com/${{ env.KERNEL_REPO }}.git" AI-kernel
@@ -270,7 +311,7 @@ jobs:
             fi
           done
 
-          for wf in setup-structure.yml sync-repos.yml migrate.yml append_file.sh; do
+          for wf in setup-structure.yml migrate.yml append_file.sh; do
             if [ -f ".github/workflows/$wf" ]; then 
               echo "### 📄 檔案：$wf (infra)" >> "$OUTPUT"
               bash .github/workflows/append_file.sh ".github/workflows/$wf" "$OUTPUT" || true
@@ -302,7 +343,7 @@ jobs:
             bash .github/workflows/append_file.sh "AI-kernel/.github/workflows/apply-patch.yml" "$OUTPUT" || true
             echo "" >> "$OUTPUT"
           else
-            echo "> ⚠️ 找不到 `AI-kernel/.github/workflows/apply-patch.yml`" >> "$OUTPUT"
+            echo "> ⚠️ 找不到 \`AI-kernel/.github/workflows/apply-patch.yml\`" >> "$OUTPUT"
           fi
 
           curl -s -f -L -H "Authorization: token ${{ secrets.CROSS_REPO_PAT }}" "https://raw.githubusercontent.com/${{ env.KERNEL_REPO }}/main/.github/workflows/notify.yml" -o "AI-kernel/.github/workflows/notify.yml" || true
@@ -312,7 +353,7 @@ jobs:
             bash .github/workflows/append_file.sh "AI-kernel/.github/workflows/notify.yml" "$OUTPUT" || true
             echo "" >> "$OUTPUT"
           else
-            echo "> ⚠️ 找不到 `AI-kernel/.github/workflows/notify.yml`" >> "$OUTPUT"
+            echo "> ⚠️ 找不到 \`AI-kernel/.github/workflows/notify.yml\`" >> "$OUTPUT"
           fi
           
           if [ -f "AI-kernel/.gitignore" ]; then 
@@ -333,7 +374,7 @@ jobs:
             bash .github/workflows/append_file.sh "AI-General/.github/workflows/apply-patch.yml" "$OUTPUT" || true
             echo "" >> "$OUTPUT"
           else
-            echo "> ⚠️ 找不到 `AI-General/.github/workflows/apply-patch.yml`" >> "$OUTPUT"
+            echo "> ⚠️ 找不到 \`AI-General/.github/workflows/apply-patch.yml\`" >> "$OUTPUT"
           fi
 
           curl -s -f -L -H "Authorization: token ${{ secrets.CROSS_REPO_PAT }}" "https://raw.githubusercontent.com/${{ env.GENERAL_REPO }}/main/.github/workflows/notify.yml" -o "AI-General/.github/workflows/notify.yml" || true
@@ -343,7 +384,7 @@ jobs:
             bash .github/workflows/append_file.sh "AI-General/.github/workflows/notify.yml" "$OUTPUT" || true
             echo "" >> "$OUTPUT"
           else
-            echo "> ⚠️ 找不到 `AI-General/.github/workflows/notify.yml`" >> "$OUTPUT"
+            echo "> ⚠️ 找不到 \`AI-General/.github/workflows/notify.yml\`" >> "$OUTPUT"
           fi
 
           if [ -f "AI-General/.gitignore" ]; then 
@@ -391,6 +432,6 @@ jobs:
 
 # ═══ EOF ═══
 # F: AI-infra/.github/workflows/setup-structure.yml
-# V: 1792409000
-# W: ai-system-20261019-010#197
+# V: 1792413000
+# W: ai-system-20261019-010#210
 # ═══ EOF ═══
