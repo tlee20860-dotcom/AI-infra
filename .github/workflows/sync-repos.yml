@@ -11,7 +11,6 @@ on:
     paths:
       - '.github/workflows/sync-repos.yml'
 
-# 防止多個同步 Action 同時執行
 concurrency:
   group: sync-repos
   cancel-in-progress: true
@@ -32,11 +31,8 @@ jobs:
         run: |
           mkdir -p config
           
-          echo '{' > config/repos.json
-          echo '  "kernel": "tlee20860-dotcom/AI-kernel",' >> config/repos.json
-          echo '  "general": "tlee20860-dotcom/AI-General",' >> config/repos.json
-          echo '  "packages": "tlee20860-dotcom/AI-packages",' >> config/repos.json
-          echo '  "projects": [' >> config/repos.json
+          # 先將抓到的專案暫存為陣列，最後再用 jq 排序
+          echo '[' > /tmp/projects_array.json
 
           REPOS=$(gh search repos --owner tlee20860-dotcom --topic ai-systems --json name,owner --jq '.[] | select(.name != "AI-kernel" and .name != "AI-General" and .name != "AI-infra" and .name != "AI-packages") | .owner.login + "/" + .name')
 
@@ -62,20 +58,28 @@ jobs:
             if [ "$FIRST" = true ]; then
               FIRST=false
             else
-              echo ',' >> config/repos.json
+              echo ',' >> /tmp/projects_array.json
             fi
             
-            echo "    {" >> config/repos.json
-            echo "      \"repo\": \"$REPO\"," >> config/repos.json
-            echo "      \"domain\": \"$DOMAIN\"," >> config/repos.json
-            echo "      \"code\": \"$CODE\"," >> config/repos.json
-            echo "      \"display\": \"$DISPLAY\"," >> config/repos.json
-            echo "      \"pkg_no\": \"$PKG_NO\"" >> config/repos.json
-            echo -n "    }" >> config/repos.json
+            echo "    {" >> /tmp/projects_array.json
+            echo "      \"repo\": \"$REPO\"," >> /tmp/projects_array.json
+            echo "      \"domain\": \"$DOMAIN\"," >> /tmp/projects_array.json
+            echo "      \"code\": \"$CODE\"," >> /tmp/projects_array.json
+            echo "      \"display\": \"$DISPLAY\"," >> /tmp/projects_array.json
+            echo "      \"pkg_no\": \"$PKG_NO\"" >> /tmp/projects_array.json
+            echo -n "    }" >> /tmp/projects_array.json
           done
 
-          echo '' >> config/repos.json
-          echo '  ]' >> config/repos.json
+          echo '' >> /tmp/projects_array.json
+          echo ']' >> /tmp/projects_array.json
+
+          # 使用 jq 進行排序（按 pkg_no）
+          echo '{' > config/repos.json
+          echo '  "kernel": "tlee20860-dotcom/AI-kernel",' >> config/repos.json
+          echo '  "general": "tlee20860-dotcom/AI-General",' >> config/repos.json
+          echo '  "packages": "tlee20860-dotcom/AI-packages",' >> config/repos.json
+          echo -n '  "projects": ' >> config/repos.json
+          jq 'sort_by(.pkg_no)' /tmp/projects_array.json >> config/repos.json
           echo '}' >> config/repos.json
 
       - name: Commit repos.json
@@ -104,6 +108,6 @@ jobs:
 
 # ═══ EOF ═══
 # F: AI-infra/.github/workflows/sync-repos.yml
-# V: 1792382000
-# W: ai-system-20261019-010#140
+# V: 1792411000
+# W: ai-system-20261019-010#203
 # ═══ EOF ═══
