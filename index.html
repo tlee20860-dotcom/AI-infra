@@ -43,7 +43,7 @@
 
         .card-title { font-size: 1.1rem; font-weight: bold; margin-bottom: 15px; display: flex; align-items: center; gap: 8px; }
 
-        input[type="password"], input[type="text"], input[type="email"], textarea, select {
+        input[type="password"], input[type="text"], textarea, select {
             width: 100%;
             padding: 12px;
             border: 1px solid var(--border);
@@ -130,41 +130,8 @@
         .token-info { display: flex; flex-direction: column; }
         .token-name { font-weight: bold; font-size: 0.95rem; }
         .token-type { font-size: 0.75rem; color: var(--text-muted); }
-        
-        .hidden { display: none !important; }
     </style>
     
-    <!-- Firebase SDK -->
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-        import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
-        import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
-
-        const firebaseConfig = {
-            apiKey: "AIzaSyD1eBNFbTjuv4D57MQG7Ii8BqTsrvFOZs8",
-            authDomain: "key-pass-611c7.firebaseapp.com",
-            projectId: "key-pass-611c7",
-            storageBucket: "key-pass-611c7.firebasestorage.app",
-            messagingSenderId: "134362721331",
-            appId: "1:134362721331:web:9d90b43a1d9e201b640746"
-        };
-
-        const app = initializeApp(firebaseConfig);
-        const auth = getAuth(app);
-        const db = getFirestore(app);
-
-        window.firebaseAuth = auth;
-        window.firebaseDb = db;
-        window.firebaseSignIn = signInWithEmailAndPassword;
-        window.firebaseSignOut = signOut;
-        window.firebaseOnAuthStateChanged = onAuthStateChanged;
-        window.firebaseGetDoc = getDoc;
-        window.firebaseSetDoc = setDoc;
-        window.firebaseDoc = doc;
-        
-        window.dispatchEvent(new Event('firebaseReady'));
-    </script>
-
     <script>
         const OWNER = 'tlee20860-dotcom';
         const INFRA_REPO = 'AI-infra';
@@ -175,81 +142,36 @@
         let currentToken = '';
         let tokenList = [];
 
+        // 初始化
         window.onload = () => {
-            document.getElementById('login-form').addEventListener('submit', handleLogin);
-            
-            window.addEventListener('firebaseReady', () => {
-                window.firebaseOnAuthStateChanged(window.firebaseAuth, async (user) => {
-                    if (user) {
-                        document.getElementById('login-section').classList.add('hidden');
-                        document.getElementById('main-sections').classList.remove('hidden');
-                        document.getElementById('user-email').textContent = user.email;
-                        await loadTokens();
-                        checkBuildStatus();
-                        fetchFiles();
-                    } else {
-                        document.getElementById('login-section').classList.remove('hidden');
-                        document.getElementById('main-sections').classList.add('hidden');
-                    }
-                });
-            });
+            loadTokens();
+            checkBuildStatus();
+            fetchFiles();
         };
 
-        async function handleLogin(e) {
-            e.preventDefault();
-            const email = document.getElementById('login-email').value;
-            const pass = document.getElementById('login-password').value;
-            const btn = document.getElementById('btn-login');
-            btn.disabled = true;
-            btn.textContent = '登入中...';
-            try {
-                await window.firebaseSignIn(window.firebaseAuth, email, pass);
-            } catch (error) {
-                alert('登入失敗：' + error.message);
-            } finally {
-                btn.disabled = false;
-                btn.textContent = '登入';
-            }
-        }
-
-        function logout() {
-            window.firebaseSignOut(window.firebaseAuth);
-        }
-
-        async function loadTokens() {
-            const user = window.firebaseAuth.currentUser;
-            if (!user) return;
-            
-            try {
-                const docRef = window.firebaseDoc(window.firebaseDb, "settings", user.uid);
-                const docSnap = await window.firebaseGetDoc(docRef);
-                if (docSnap.exists()) {
-                    const data = docSnap.data();
-                    tokenList = data.tokens || [];
+        // === Token 管理 (LocalStorage) ===
+        function loadTokens() {
+            const stored = localStorage.getItem('gh_token_list');
+            if (stored) {
+                try {
+                    tokenList = JSON.parse(stored);
                     if (tokenList.length > 0) {
                         const active = tokenList.find(t => t.isActive);
                         if (active) currentToken = active.token;
                         else currentToken = tokenList[0].token;
                     }
+                } catch (e) {
+                    console.error("解析 Token 失敗", e);
                 }
-                renderTokens();
-            } catch (e) {
-                console.error("載入 Token 失敗", e);
             }
+            renderTokens();
         }
 
-        async function saveTokensToDB() {
-            const user = window.firebaseAuth.currentUser;
-            if (!user) return;
-            try {
-                const docRef = window.firebaseDoc(window.firebaseDb, "settings", user.uid);
-                await window.firebaseSetDoc(docRef, { tokens: tokenList });
-            } catch (e) {
-                alert("儲存失敗，請確認 Firestore 規則是否允許讀寫。");
-            }
+        function saveTokensToLocal() {
+            localStorage.setItem('gh_token_list', JSON.stringify(tokenList));
         }
 
-        async function addToken() {
+        function addToken() {
             const name = document.getElementById('new-token-name').value.trim();
             const type = document.getElementById('new-token-type').value;
             const tokenStr = document.getElementById('new-token-value').value.trim();
@@ -265,7 +187,7 @@
             };
 
             tokenList.push(newToken);
-            await saveTokensToDB();
+            saveTokensToLocal();
             if (newToken.isActive) currentToken = newToken.token;
             
             document.getElementById('new-token-name').value = '';
@@ -273,7 +195,7 @@
             renderTokens();
         }
 
-        async function deleteToken(id) {
+        function deleteToken(id) {
             if (!confirm('確定要刪除這組 Token 嗎？')) return;
             const tokenToDelete = tokenList.find(t => t.id === id);
             tokenList = tokenList.filter(t => t.id !== id);
@@ -285,16 +207,16 @@
                 currentToken = '';
             }
             
-            await saveTokensToDB();
+            saveTokensToLocal();
             renderTokens();
         }
 
-        async function setActive(id) {
+        function setActive(id) {
             tokenList.forEach(t => {
                 t.isActive = (t.id === id);
                 if (t.isActive) currentToken = t.token;
             });
-            await saveTokensToDB();
+            saveTokensToLocal();
             renderTokens();
         }
 
@@ -307,7 +229,7 @@
         function renderTokens() {
             const listEl = document.getElementById('token-list');
             if (tokenList.length === 0) {
-                listEl.innerHTML = '<div style="text-align:center; color:var(--text-muted); font-size:0.9rem; padding: 10px;">目前沒有 Token</div>';
+                listEl.innerHTML = '<div style="text-align:center; color:var(--text-muted); font-size:0.9rem; padding: 10px;">目前沒有 Token，請於上方新增</div>';
                 return;
             }
 
@@ -333,6 +255,7 @@
             });
         }
 
+        // === GitHub API 封裝 ===
         async function githubAPI(url, options = {}) {
             if (!currentToken) throw new Error("未啟用 GitHub Token");
             const headers = {
@@ -354,6 +277,7 @@
             return res.status === 204 ? null : await res.json();
         }
 
+        // === 打包功能 ===
         async function triggerBuild() {
             const btn = document.getElementById('btn-trigger');
             btn.disabled = true;
@@ -404,6 +328,7 @@
             }
         }
 
+        // === 遠端 Patch 部署 ===
         async function deployPatch() {
             const btn = document.getElementById('btn-deploy-patch');
             const targetRepo = document.getElementById('patch-repo').value.trim();
@@ -445,6 +370,7 @@
             }
         }
 
+        // === Pages 部署 ===
         async function triggerPagesDeploy() {
             const btn = document.getElementById('btn-deploy-pages');
             const targetRepo = document.getElementById('pages-repo').value.trim();
@@ -476,6 +402,7 @@
             if(text) text.textContent = msg;
         }
 
+        // === 共享包下載 / 複製 / 分享 ===
         let currentFilesData = []; 
 
         async function fetchFiles() {
@@ -565,96 +492,75 @@
     <h1>🚀 AI 控制台</h1>
     <div class="subtitle">共享包打包與遠端部署中心</div>
 
-    <!-- 登入區塊 (Email / 密碼) -->
-    <div class="card" id="login-section">
-        <div class="card-title">🔐 系統登入</div>
-        <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 15px;">請輸入您在 Firebase 設定的帳號密碼</p>
-        <form id="login-form">
-            <input type="email" id="login-email" placeholder="Email (例如 ken@test.com)" required>
-            <input type="password" id="login-password" placeholder="密碼" required>
-            <button type="submit" class="btn-primary" id="btn-login">登入</button>
-        </form>
+    <!-- 1. 憑證管理中心 -->
+    <div class="card" id="token-section">
+        <div class="card-title">🔑 憑證管理中心</div>
+        <input type="text" id="new-token-name" placeholder="名稱 (如：主要 GitHub)">
+        <select id="new-token-type">
+            <option value="GitHub">GitHub (用於控制台操作)</option>
+            <option value="OpenAI">OpenAI API Key</option>
+            <option value="Gemini">Gemini API Key</option>
+            <option value="Other">其他服務</option>
+        </select>
+        <input type="password" id="new-token-value" placeholder="Token 字串">
+        <button class="btn-primary" onclick="addToken()">➕ 新增 Token</button>
+        
+        <div style="margin-top: 15px; border: 1px solid var(--border); border-radius: 8px; overflow: hidden;" id="token-list">
+            <!-- Token 列表會插入這裡 -->
+        </div>
+        <p style="font-size: 0.8rem; color: var(--text-muted); margin-top: 10px;">※ 只有「GitHub」類型的 Token 可以被設為啟用，用於下方控制台功能。</p>
     </div>
 
-    <!-- 主功能區塊 -->
-    <div id="main-sections" class="hidden">
-        
-        <!-- 使用者資訊 -->
-        <div style="text-align: right; margin-bottom: 10px; font-size: 0.85rem; color: var(--text-muted);">
-            歡迎，<span id="user-email"></span>
-            <button class="btn-outline btn-small" onclick="logout()" style="margin-left: 10px; display:inline-block; width:auto;">登出</button>
+    <!-- 2. 打包控制區 -->
+    <div class="card">
+        <div class="card-title">📦 共享包打包</div>
+        <button class="btn-primary" id="btn-trigger" onclick="triggerBuild()">
+            ▶️ 立即打包
+        </button>
+        <div class="status-box">
+            <div class="status-dot" id="build-status-dot"></div>
+            <div id="build-status-text">等待操作...</div>
         </div>
+    </div>
 
-        <!-- 1. 憑證管理中心 -->
-        <div class="card" id="token-section">
-            <div class="card-title">🔑 憑證管理中心</div>
-            <input type="text" id="new-token-name" placeholder="名稱 (如：主要 GitHub)">
-            <select id="new-token-type">
-                <option value="GitHub">GitHub (用於控制台操作)</option>
-                <option value="OpenAI">OpenAI API Key</option>
-                <option value="Gemini">Gemini API Key</option>
-                <option value="Other">其他服務</option>
-            </select>
-            <input type="password" id="new-token-value" placeholder="Token 字串">
-            <button class="btn-primary" onclick="addToken()">➕ 新增 Token</button>
-            
-            <div style="margin-top: 15px; border: 1px solid var(--border); border-radius: 8px; overflow: hidden;" id="token-list">
-                <!-- Token 列表會插入這裡 -->
-            </div>
-            <p style="font-size: 0.8rem; color: var(--text-muted); margin-top: 10px;">※ 只有「GitHub」類型的 Token 可以被設為啟用，用於下方控制台功能。</p>
+    <!-- 3. Patch 部署區 -->
+    <div class="card" id="patch-section">
+        <div class="card-title">🚀 遠端 Patch 部署</div>
+        <input type="text" id="patch-repo" placeholder="目標 Repo (如 tlee20860-dotcom/AI-WEB-APP-Family)" value="tlee20860-dotcom/AI-WEB-APP-Family">
+        <input type="text" id="patch-branch" placeholder="分支 (預設 main)" value="main">
+        <textarea id="patch-content" placeholder="請貼上 Patch 內容 (支援 ## FILE: path 語法)"></textarea>
+        <button class="btn-primary" id="btn-deploy-patch" onclick="deployPatch()">
+            ✏️ 寫入 PATCH.md 並觸發
+        </button>
+        <div class="status-box">
+            <div class="status-dot" id="patch-status-dot"></div>
+            <div id="patch-status-text">等待操作...</div>
         </div>
+    </div>
 
-        <!-- 2. 打包控制區 -->
-        <div class="card">
-            <div class="card-title">📦 共享包打包</div>
-            <button class="btn-primary" id="btn-trigger" onclick="triggerBuild()">
-                ▶️ 立即打包
-            </button>
-            <div class="status-box">
-                <div class="status-dot" id="build-status-dot"></div>
-                <div id="build-status-text">等待操作...</div>
-            </div>
+    <!-- 4. Pages 部署區 -->
+    <div class="card" id="pages-section">
+        <div class="card-title">🌐 Pages 部署</div>
+        <input type="text" id="pages-repo" placeholder="目標 Repo (如 tlee20860-dotcom/AI-WEB-APP-Family)" value="tlee20860-dotcom/AI-WEB-APP-Family">
+        <input type="text" id="pages-branch" placeholder="分支 (預設 main)" value="main">
+        <button class="btn-primary" id="btn-deploy-pages" onclick="triggerPagesDeploy()">
+            ⚡ 觸發 Pages 部署
+        </button>
+        <div class="status-box">
+            <div class="status-dot" id="pages-status-dot"></div>
+            <div id="pages-status-text">等待操作...</div>
         </div>
+    </div>
 
-        <!-- 3. Patch 部署區 -->
-        <div class="card" id="patch-section">
-            <div class="card-title">🚀 遠端 Patch 部署</div>
-            <input type="text" id="patch-repo" placeholder="目標 Repo (如 tlee20860-dotcom/AI-WEB-APP-Family)" value="tlee20860-dotcom/AI-WEB-APP-Family">
-            <input type="text" id="patch-branch" placeholder="分支 (預設 main)" value="main">
-            <textarea id="patch-content" placeholder="請貼上 Patch 內容 (支援 ## FILE: path 語法)"></textarea>
-            <button class="btn-primary" id="btn-deploy-patch" onclick="deployPatch()">
-                ✏️ 寫入 PATCH.md 並觸發
-            </button>
-            <div class="status-box">
-                <div class="status-dot" id="patch-status-dot"></div>
-                <div id="patch-status-text">等待操作...</div>
-            </div>
+    <!-- 5. 檔案下載區 -->
+    <div class="card" id="files-section">
+        <div class="card-title">📥 共享包獲取</div>
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+            <span style="font-size: 0.85rem; color: var(--text-muted);">從 AI-packages 獲取</span>
+            <button class="btn-outline btn-small" onclick="fetchFiles()">🔄 重新整理</button>
         </div>
-
-        <!-- 4. Pages 部署區 -->
-        <div class="card" id="pages-section">
-            <div class="card-title">🌐 Pages 部署</div>
-            <input type="text" id="pages-repo" placeholder="目標 Repo (如 tlee20860-dotcom/AI-WEB-APP-Family)" value="tlee20860-dotcom/AI-WEB-APP-Family">
-            <input type="text" id="pages-branch" placeholder="分支 (預設 main)" value="main">
-            <button class="btn-primary" id="btn-deploy-pages" onclick="triggerPagesDeploy()">
-                ⚡ 觸發 Pages 部署
-            </button>
-            <div class="status-box">
-                <div class="status-dot" id="pages-status-dot"></div>
-                <div id="pages-status-text">等待操作...</div>
-            </div>
-        </div>
-
-        <!-- 5. 檔案下載區 -->
-        <div class="card" id="files-section">
-            <div class="card-title">📥 共享包獲取</div>
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-                <span style="font-size: 0.85rem; color: var(--text-muted);">從 AI-packages 獲取</span>
-                <button class="btn-outline btn-small" onclick="fetchFiles()">🔄 重新整理</button>
-            </div>
-            <div class="file-list" id="file-list">
-                <!-- 檔案列表會插入這裡 -->
-            </div>
+        <div class="file-list" id="file-list">
+            <!-- 檔案列表會插入這裡 -->
         </div>
     </div>
 </div>
