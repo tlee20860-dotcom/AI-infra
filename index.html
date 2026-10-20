@@ -1,581 +1,442 @@
-<!DOCTYPE html>
-<html lang="zh-Hant">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>AI 控制台 - 管理中心</title>
-    
-    <!-- PWA 設定 -->
-    <link rel="manifest" href="manifest.json">
-    <meta name="theme-color" content="#6366f1">
-    
-    <style>
-        :root {
-            --primary: #6366f1;
-            --primary-hover: #4f46e5;
-            --bg: #f8fafc;
-            --card-bg: #ffffff;
-            --text: #1e293b;
-            --text-muted: #64748b;
-            --success: #10b981;
-            --danger: #ef4444;
-            --border: #e2e8f0;
-        }
+# ============================================
+# setup-structure.yml — 動態共享包打包腳本 (手動觸發版)
+# 用途：僅限手動觸發，並加入 pull --rebase 防撞機制
+# ============================================
 
-        * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; }
+name: Build Shared Packages
 
-        body {
-            background-color: var(--bg);
-            color: var(--text);
-            padding: 20px;
-            line-height: 1.5;
-            -webkit-tap-highlight-color: transparent;
-        }
+on:
+  workflow_dispatch: # 僅保留手動觸發，避免自動競爭衝突
 
-        .container { max-width: 600px; margin: 0 auto; }
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
 
-        h1 { font-size: 1.5rem; margin-bottom: 5px; text-align: center; color: var(--text); }
-        .subtitle { text-align: center; color: var(--text-muted); font-size: 0.9rem; margin-bottom: 20px; }
+    steps:
+      - name: Checkout AI-infra
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.CROSS_REPO_PAT }}
 
-        .card {
-            background: var(--card-bg);
-            border-radius: 12px;
-            padding: 20px;
-            margin-bottom: 20px;
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-            border: 1px solid var(--border);
-        }
-
-        .card-title { font-size: 1.1rem; font-weight: bold; margin-bottom: 15px; display: flex; align-items: center; gap: 8px; }
-
-        input[type="password"], input[type="text"], textarea, select {
-            width: 100%;
-            padding: 12px;
-            border: 1px solid var(--border);
-            border-radius: 8px;
-            font-size: 1rem;
-            margin-bottom: 10px;
-            transition: border-color 0.2s;
-            font-family: inherit;
-        }
-        textarea { resize: vertical; min-height: 100px; }
-        input:focus, textarea:focus, select:focus { outline: none; border-color: var(--primary); }
-
-        button {
-            width: 100%;
-            padding: 14px;
-            border: none;
-            border-radius: 8px;
-            font-size: 1rem;
-            font-weight: bold;
-            cursor: pointer;
-            transition: background-color 0.2s, opacity 0.2s;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            gap: 8px;
-        }
-
-        button:active { transform: scale(0.98); }
-        button:disabled { opacity: 0.6; cursor: not-allowed; }
-
-        .btn-primary { background-color: var(--primary); color: white; }
-        .btn-primary:hover:not(:disabled) { background-color: var(--primary-hover); }
-        .btn-outline { background-color: transparent; border: 1px solid var(--border); color: var(--text); margin-top: 10px; }
-        .btn-small { width: auto; padding: 8px 12px; font-size: 0.85rem; border-radius: 6px; }
-        .btn-success { background-color: var(--success); color: white; }
-        .btn-danger { background-color: var(--danger); color: white; }
-        
-        .status-box {
-            padding: 15px;
-            border-radius: 8px;
-            background-color: #f1f5f9;
-            margin-top: 15px;
-            font-size: 0.9rem;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-        .status-dot { width: 10px; height: 10px; border-radius: 50%; background-color: var(--text-muted); flex-shrink: 0; }
-        .status-dot.running { background-color: #f59e0b; animation: pulse 1.5s infinite; }
-        .status-dot.success { background-color: var(--success); }
-        .status-dot.failure { background-color: var(--danger); }
-
-        @keyframes pulse {
-            0% { transform: scale(0.95); opacity: 0.7; }
-            50% { transform: scale(1.1); opacity: 1; }
-            100% { transform: scale(0.95); opacity: 0.7; }
-        }
-
-        .file-list { margin-top: 15px; display: flex; flex-direction: column; gap: 10px; }
-        .file-item {
-            display: flex;
-            flex-direction: column;
-            gap: 8px;
-            padding: 12px;
-            border: 1px solid var(--border);
-            border-radius: 8px;
-            background-color: var(--card-bg);
-        }
-        .file-header { display: flex; justify-content: space-between; align-items: center; }
-        .file-name { font-weight: bold; color: var(--primary); font-size: 1rem; }
-        .file-time { font-size: 0.8rem; color: var(--text-muted); }
-        .file-actions { display: flex; gap: 8px; flex-wrap: wrap; }
-        .file-actions button { flex: 1; margin-top: 0; padding: 8px; font-size: 0.85rem; }
-
-        .token-item {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 10px;
-            border-bottom: 1px solid var(--border);
-            background: #fff;
-        }
-        .token-item:last-child { border-bottom: none; }
-        .token-info { display: flex; flex-direction: column; }
-        .token-name { font-weight: bold; font-size: 0.95rem; }
-        .token-type { font-size: 0.75rem; color: var(--text-muted); }
-    </style>
-    
-    <script>
-        const OWNER = 'tlee20860-dotcom';
-        const INFRA_REPO = 'AI-infra';
-        const PACKAGES_REPO = 'AI-packages';
-        const WORKFLOW_ID = 'setup-structure.yml';
-
-        let pollInterval = null;
-        let currentToken = '';
-        let tokenList = [];
-
-        // 初始化
-        window.onload = () => {
-            loadTokens();
-            checkBuildStatus();
-            fetchFiles();
-
-            // 註冊 Service Worker
-            if ('serviceWorker' in navigator) {
-                navigator.serviceWorker.register('sw.js')
-                    .then(reg => console.log('SW registered:', reg.scope))
-                    .catch(err => console.log('SW registration failed:', err));
-            }
-        };
-
-        // === Token 管理 (LocalStorage) ===
-        function loadTokens() {
-            const stored = localStorage.getItem('gh_token_list');
-            if (stored) {
-                try {
-                    tokenList = JSON.parse(stored);
-                    if (tokenList.length > 0) {
-                        const active = tokenList.find(t => t.isActive);
-                        if (active) currentToken = active.token;
-                        else currentToken = tokenList[0].token;
-                    }
-                } catch (e) {
-                    console.error("解析 Token 失敗", e);
-                }
-            }
-            renderTokens();
-        }
-
-        function saveTokensToLocal() {
-            localStorage.setItem('gh_token_list', JSON.stringify(tokenList));
-        }
-
-        function addToken() {
-            const name = document.getElementById('new-token-name').value.trim();
-            const type = document.getElementById('new-token-type').value;
-            const tokenStr = document.getElementById('new-token-value').value.trim();
-
-            if (!name || !tokenStr) return alert('請填寫名稱與 Token');
-
-            const newToken = {
-                id: Date.now().toString(),
-                name: name,
-                type: type,
-                token: tokenStr,
-                isActive: tokenList.length === 0
-            };
-
-            tokenList.push(newToken);
-            saveTokensToLocal();
-            if (newToken.isActive) currentToken = newToken.token;
+      - name: "Step 0: 同步 Repos 名單 (Sync Repos List)"
+        env:
+          GH_TOKEN: ${{ secrets.CROSS_REPO_PAT }}
+        run: |
+          mkdir -p config
+          
+          echo '[' > /tmp/projects_array.json
+          REPOS=$(gh search repos --owner tlee20860-dotcom --topic ai-systems --json name,owner --jq '.[] | select(.name != "AI-kernel" and .name != "AI-General" and .name != "AI-infra" and .name != "AI-packages") | .owner.login + "/" + .name')
+          
+          FIRST=true
+          for REPO in $REPOS; do
+            META=$(curl -s -H "Authorization: token $GH_TOKEN" "https://raw.githubusercontent.com/$REPO/main/meta.json")
+            if ! echo "$META" | grep -q "pkg_no"; then
+              META=$(curl -s -H "Authorization: token $GH_TOKEN" "https://raw.githubusercontent.com/$REPO/master/meta.json")
+            fi
             
-            document.getElementById('new-token-name').value = '';
-            document.getElementById('new-token-value').value = '';
-            renderTokens();
-        }
+            if echo "$META" | grep -q "pkg_no"; then
+              DOMAIN=$(echo "$META" | jq -r '.domain')
+              PKG_NO=$(echo "$META" | jq -r '.pkg_no')
+              CODE=$(echo "$META" | jq -r '.code // "-"')
+              DISPLAY=$(echo "$META" | jq -r '.display // "-"')
+            else
+              continue
+            fi
 
-        function deleteToken(id) {
-            if (!confirm('確定要刪除這組 Token 嗎？')) return;
-            const tokenToDelete = tokenList.find(t => t.id === id);
-            tokenList = tokenList.filter(t => t.id !== id);
-            
-            if (tokenToDelete && tokenToDelete.isActive && tokenList.length > 0) {
-                tokenList[0].isActive = true;
-                currentToken = tokenList[0].token;
-            } else if (tokenList.length === 0) {
-                currentToken = '';
-            }
-            
-            saveTokensToLocal();
-            renderTokens();
-        }
+            if [ "$FIRST" = true ]; then FIRST=false; else echo ',' >> /tmp/projects_array.json; fi
+            echo "    {\"repo\": \"$REPO\", \"domain\": \"$DOMAIN\", \"code\": \"$CODE\", \"display\": \"$DISPLAY\", \"pkg_no\": \"$PKG_NO\"}" >> /tmp/projects_array.json
+          done
+          echo '' >> /tmp/projects_array.json
+          echo ']' >> /tmp/projects_array.json
 
-        function setActive(id) {
-            tokenList.forEach(t => {
-                t.isActive = (t.id === id);
-                if (t.isActive) currentToken = t.token;
-            });
-            saveTokensToLocal();
-            renderTokens();
-        }
+          # 使用 jq 進行排序（按 pkg_no）
+          echo '{' > config/repos.json
+          echo '  "kernel": "tlee20860-dotcom/AI-kernel",' >> config/repos.json
+          echo '  "general": "tlee20860-dotcom/AI-General",' >> config/repos.json
+          echo '  "packages": "tlee20860-dotcom/AI-packages",' >> config/repos.json
+          echo -n '  "projects": ' >> config/repos.json
+          jq 'sort_by(.pkg_no)' /tmp/projects_array.json >> config/repos.json
+          echo '}' >> config/repos.json
+          
+          # 提交 repos.json 至倉庫備份
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add config/repos.json
+          git diff --cached --quiet || (git commit -m "chore: auto-sync repos.json [skip ci]" && git push)
 
-        function copyToken(tokenStr) {
-            navigator.clipboard.writeText(tokenStr).then(() => {
-                alert('已複製 Token');
-            });
-        }
+      - name: Read Repos Config
+        id: config
+        run: |
+          cat config/repos.json
+          KERNEL=$(jq -r '.kernel' config/repos.json)
+          GENERAL=$(jq -r '.general' config/repos.json)
+          PACKAGES=$(jq -r '.packages' config/repos.json)
+          echo "KERNEL_REPO=$KERNEL" >> $GITHUB_ENV
+          echo "GENERAL_REPO=$GENERAL" >> $GITHUB_ENV
+          echo "PACKAGES_REPO=$PACKAGES" >> $GITHUB_ENV
+          jq -c '.projects' config/repos.json > /tmp/projects.json
 
-        function renderTokens() {
-            const listEl = document.getElementById('token-list');
-            if (tokenList.length === 0) {
-                listEl.innerHTML = '<div style="text-align:center; color:var(--text-muted); font-size:0.9rem; padding: 10px;">目前沒有 Token，請於上方新增</div>';
-                return;
-            }
+      - name: Checkout AI-kernel (git clone main)
+        run: |
+          git clone --depth 1 -b main "https://x-access-token:${{ secrets.CROSS_REPO_PAT }}@github.com/${{ env.KERNEL_REPO }}.git" AI-kernel || \
+          git clone --depth 1 -b master "https://x-access-token:${{ secrets.CROSS_REPO_PAT }}@github.com/${{ env.KERNEL_REPO }}.git" AI-kernel
 
-            listEl.innerHTML = '';
-            tokenList.forEach(t => {
-                const item = document.createElement('div');
-                item.className = 'token-item';
+      - name: Checkout AI-General (git clone main)
+        run: |
+          git clone --depth 1 -b main "https://x-access-token:${{ secrets.CROSS_REPO_PAT }}@github.com/${{ env.GENERAL_REPO }}.git" AI-General || \
+          git clone --depth 1 -b master "https://x-access-token:${{ secrets.CROSS_REPO_PAT }}@github.com/${{ env.GENERAL_REPO }}.git" AI-General
+
+      - name: Checkout AI-packages
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ env.PACKAGES_REPO }}
+          token: ${{ secrets.CROSS_REPO_PAT }}
+          path: build-repo
+
+      - name: Checkout project repos
+        run: |
+          jq -c '.[]' /tmp/projects.json | while read -r row; do
+            REPO=$(echo "$row" | jq -r '.repo')
+            SAFE_NAME=$(echo "$REPO" | awk -F/ '{print $2}')
+            git clone --depth 1 -b main "https://x-access-token:${{ secrets.CROSS_REPO_PAT }}@github.com/$REPO.git" "external/$SAFE_NAME" 2>/dev/null || \
+            git clone --depth 1 -b master "https://x-access-token:${{ secrets.CROSS_REPO_PAT }}@github.com/$REPO.git" "external/$SAFE_NAME" 2>/dev/null || echo "clone fail: $REPO"
+          done
+
+      - name: "Step 1: 清理舊共享包 (清道夫)"
+        run: |
+          find build-repo -maxdepth 1 -name "*.md" -type f -delete
+          echo "舊共享包已清空。"
+
+      - name: "Step 1.5: 生成 STATE-INDEX.md"
+        run: |
+          OUTPUT="AI-General/docs/records/STATE-INDEX.md"
+          mkdir -p "AI-General/docs/records"
+          TMP_TABLE="/tmp/state-index-files.txt"
+          > "$TMP_TABLE"
+          
+          for REPO_DIR in "AI-General" "AI-kernel"; do
+            if [ -d "$REPO_DIR/docs" ]; then
+              find "$REPO_DIR/docs" -type f -name "*.md" -not -path "*/.git/*" | while read -r f; do
+                V=$(tail -n 15 "$f" | grep -oE 'V: *[0-9]+' | head -1 | sed 's/V: *//' || true)
+                if [ -z "$V" ]; then continue; fi
+                W=$(tail -n 15 "$f" | grep -oE 'W: *[^ ]+' | head -1 | sed 's/W: *//' || true)
                 
-                const masked = t.token.substring(0, 4) + '****' + t.token.substring(t.token.length - 4);
+                REPO_NAME="AI-General"
+                CLEAN_F=${f#AI-General/}
+                if [[ "$f" == AI-kernel/* ]]; then 
+                  REPO_NAME="AI-kernel"
+                  CLEAN_F=${f#AI-kernel/}
+                fi
                 
-                item.innerHTML = `
-                    <div class="token-info">
-                        <span class="token-name">${t.name} ${t.isActive ? '✅' : ''}</span>
-                        <span class="token-type">${t.type} (${masked})</span>
-                    </div>
-                    <div style="display:flex; gap:5px;">
-                        ${!t.isActive && t.type === 'GitHub' ? `<button class="btn-primary btn-small" onclick="setActive('${t.id}')" style="padding:6px 10px; font-size:0.75rem;">啟用</button>` : ''}
-                        <button class="btn-outline btn-small" onclick="copyToken('${t.token}')" style="padding:6px 10px; font-size:0.75rem; margin-top:0;">複製</button>
-                        <button class="btn-danger btn-small" onclick="deleteToken('${t.id}')" style="padding:6px 10px; font-size:0.75rem;">刪除</button>
-                    </div>
-                `;
-                listEl.appendChild(item);
-            });
-        }
+                echo "$REPO_NAME|$CLEAN_F|$V|$W" >> "$TMP_TABLE"
+              done
+            fi
+          done || true
 
-        // === GitHub API 封裝 ===
-        async function githubAPI(url, options = {}) {
-            if (!currentToken) throw new Error("未啟用 GitHub Token");
-            const headers = {
-                'Accept': 'application/vnd.github.v3+json',
-                'Authorization': `token ${currentToken}`,
-                ...options.headers
-            };
-            const res = await fetch(`https://api.github.com${url}`, { ...options, headers });
-            if (!res.ok) {
-                let errMsg = `API 錯誤: ${res.status}`;
-                try {
-                    const errData = await res.json();
-                    if (errData.message) errMsg += ` - ${errData.message}`;
-                } catch(e) {}
-                if (res.status === 401) throw new Error('Token 無效或過期');
-                if (res.status === 404) throw new Error('找不到資源，請確認 Repo 名稱或權限');
-                throw new Error(errMsg);
-            }
-            return res.status === 204 ? null : await res.json();
-        }
+          {
+            echo "# STATE-INDEX"
+            echo ""
+            echo "> 生成時間：$(TZ=Asia/Hong_Kong date '+%Y-%m-%d %H:%M:%S') (HKT)"
+            echo ""
+            echo "## 一、專案總覽"
+            echo "| 專案顯示名稱 | code | domain | package_no | repo |"
+            echo "|---|---|---|---|---|"
+            jq -r '.[] | "| \(.display // "-") | \(.code // "-") | \(.domain) | \(.pkg_no) | \(.repo) |"' /tmp/projects.json
+            echo ""
+            echo "## 二、檔案清單"
+            echo "| Repo | 檔案 | Version | Writer |"
+            echo "|---|---|---|---|"
+            if [ -s "$TMP_TABLE" ]; then sort -t'|' -k3 -nr "$TMP_TABLE" | head -50; fi
+            echo ""
+            echo "/* ═══ EOF ═══"
+            echo "F: AI-General/docs/records/STATE-INDEX.md"
+            echo "V: $(date +%s)"
+            echo "W: github-actions[bot]"
+            echo "═══ */"
+          } > "$OUTPUT"
 
-        // === 打包功能 ===
-        async function triggerBuild() {
-            const btn = document.getElementById('btn-trigger');
-            btn.disabled = true;
-            updateStatus('build-status', 'running', '正在發送打包指令...');
+      - name: "Step 2: 生成 A 包 (A00.md)"
+        run: |
+          OUTPUT="build-repo/A00.md"
+          echo "# A 包：啟動引導與角色定義" > "$OUTPUT"
+          echo "" >> "$OUTPUT"
+          echo "> 生成時間：$(TZ=Asia/Hong_Kong date '+%Y-%m-%d %H:%M:%S') (HKT)" >> "$OUTPUT"
+          echo "" >> "$OUTPUT"
+          if [ -f "AI-kernel/docs/a-guide/A-00-guide.md" ]; then 
+            bash .github/workflows/append_file.sh "AI-kernel/docs/a-guide/A-00-guide.md" "$OUTPUT" || true
+          fi
 
-            try {
-                await githubAPI(`/repos/${OWNER}/${INFRA_REPO}/actions/workflows/${WORKFLOW_ID}/dispatches`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ ref: 'main' })
-                });
-                
-                updateStatus('build-status', 'running', '指令已發送，等待回應...');
-                if (pollInterval) clearInterval(pollInterval);
-                setTimeout(checkBuildStatus, 3000);
-                pollInterval = setInterval(checkBuildStatus, 10000);
-            } catch (error) {
-                updateStatus('build-status', 'failure', error.message);
-                btn.disabled = false;
-            }
-        }
+      - name: "Step 3: 生成 R 包 (R00.md)"
+        run: |
+          OUTPUT="build-repo/R00.md"
+          echo "# R 包：規則總覽" > "$OUTPUT"
+          echo "" >> "$OUTPUT"
+          echo "> 生成時間：$(TZ=Asia/Hong_Kong date '+%Y-%m-%d %H:%M:%S') (HKT)" >> "$OUTPUT"
+          echo "" >> "$OUTPUT"
+          
+          for f in R-00-rules R-03-terms R-02-patterns R-04-learning R-01-mapping; do
+            FILE_PATH="AI-kernel/docs/r-rules/${f}.md"
+            if [ -f "$FILE_PATH" ]; then 
+              bash .github/workflows/append_file.sh "$FILE_PATH" "$OUTPUT" || true
+            fi
+          done
 
-        async function checkBuildStatus() {
-            try {
-                const data = await githubAPI(`/repos/${OWNER}/${INFRA_REPO}/actions/workflows/${WORKFLOW_ID}/runs?per_page=1`);
-                if (data.workflow_runs && data.workflow_runs.length > 0) {
-                    const run = data.workflow_runs[0];
-                    const createdAt = new Date(run.created_at).toLocaleString('zh-TW', { timeZone: 'Asia/Taipei' });
-                    
-                    if (run.status === 'in_progress' || run.status === 'queued') {
-                        updateStatus('build-status', 'running', `打包進行中... (始於 ${createdAt})`);
-                    } else if (run.conclusion === 'success') {
-                        updateStatus('build-status', 'success', `上次打包成功 (${createdAt})`);
-                        document.getElementById('btn-trigger').disabled = false;
-                        if (pollInterval) { clearInterval(pollInterval); fetchFiles(); }
-                    } else {
-                        updateStatus('build-status', 'failure', `上次打包失敗 (${createdAt})`);
-                        document.getElementById('btn-trigger').disabled = false;
-                        if (pollInterval) clearInterval(pollInterval);
-                    }
-                } else {
-                    updateStatus('build-status', '', '尚無打包紀錄');
-                    document.getElementById('btn-trigger').disabled = false;
-                }
-            } catch (error) {
-                updateStatus('build-status', 'failure', error.message);
-                document.getElementById('btn-trigger').disabled = false;
-            }
-        }
+      - name: "Step 4: 生成 U 包 (U00.md)"
+        run: |
+          OUTPUT="build-repo/U00.md"
+          echo "# U 包：使用者通用描述" > "$OUTPUT"
+          echo "" >> "$OUTPUT"
+          echo "> 生成時間：$(TZ=Asia/Hong_Kong date '+%Y-%m-%d %H:%M:%S') (HKT)" >> "$OUTPUT"
+          echo "" >> "$OUTPUT"
+          if [ -f "AI-kernel/docs/u-profile/U-00-profile.md" ]; then 
+            bash .github/workflows/append_file.sh "AI-kernel/docs/u-profile/U-00-profile.md" "$OUTPUT" || true
+          fi
 
-        // === 遠端 Patch 部署 ===
-        async function deployPatch() {
-            const btn = document.getElementById('btn-deploy-patch');
-            const targetRepo = document.getElementById('patch-repo').value.trim();
-            const branch = document.getElementById('patch-branch').value.trim() || 'main';
-            const patchContent = document.getElementById('patch-content').value;
+      - name: "Step 5: 生成 W 包 (W00.md)（若存在）"
+        run: |
+          OUTPUT="build-repo/W00.md"
+          if [ -d "AI-kernel/docs/skills/W" ]; then
+            echo "# W 包：Web App 領域技能" > "$OUTPUT"
+            echo "" >> "$OUTPUT"
+            echo "> 生成時間：$(TZ=Asia/Hong_Kong date '+%Y-%m-%d %H:%M:%S') (HKT)" >> "$OUTPUT"
+            echo "" >> "$OUTPUT"
+            for f in AI-kernel/docs/skills/W/W-0*.md; do
+              if [ -f "$f" ]; then bash .github/workflows/append_file.sh "$f" "$OUTPUT" || true; fi
+            done
+          fi
 
-            if (!targetRepo || !targetRepo.includes('/')) return alert('請輸入正確目標 Repo (owner/repo)');
-            if (!patchContent) return alert('請貼上 Patch 內容');
+      - name: "Step 6: 生成 S00 包 (S00-ai-system.md)"
+        run: |
+          OUTPUT="build-repo/S00-ai-system.md"
+          echo "# AI 對話系統 - 體系狀態包" > "$OUTPUT"
+          echo "" >> "$OUTPUT"
+          echo "> 生成時間：$(TZ=Asia/Hong_Kong date '+%Y-%m-%d %H:%M:%S') (HKT)" >> "$OUTPUT"
+          echo "" >> "$OUTPUT"
+          
+          echo "---" >> "$OUTPUT"
+          echo "⚠️ **【給 AI 的強制前置檢查】**" >> "$OUTPUT"
+          echo "請立刻確認：你是否已經讀取 \`A00.md\`（啟動包）？" >> "$OUTPUT"
+          echo "1. 如果「否」或「不確定」，請立刻停止閱讀本檔，先去讀取 \`A00.md\`，載入引導協議與防呆規則。" >> "$OUTPUT"
+          echo "2. 如果「是」，請依據 \`A00.md\` 輸出載入確認。" >> "$OUTPUT"
+          echo "---" >> "$OUTPUT"
+          echo "" >> "$OUTPUT"
 
-            btn.disabled = true;
-            updateStatus('patch-status', 'running', '正在取得檔案 SHA...');
+          for f in AI-General/docs/records/SYSTEM-HANDOFF.md AI-General/docs/records/PROGRESS.md AI-General/docs/records/STATE-INDEX.md AI-General/docs/records/SYSTEM-CONCLUSION.md; do
+            if [ -f "$f" ]; then bash .github/workflows/append_file.sh "$f" "$OUTPUT" || true; fi
+          done
 
-            try {
-                let sha = null;
-                try {
-                    const fileData = await githubAPI(`/repos/${targetRepo}/contents/.github/PATCH.md?ref=${branch}`);
-                    sha = fileData.sha;
-                } catch (e) {
-                    if (!e.message.includes('404') && !e.message.includes('找不到')) throw e;
-                }
-
-                updateStatus('patch-status', 'running', '正在寫入 PATCH.md...');
-                const contentBase64 = btoa(unescape(encodeURIComponent(patchContent)));
-                const putBody = { message: 'chore: apply patch via AI Console', content: contentBase64, branch: branch };
-                if (sha) putBody.sha = sha;
-
-                await githubAPI(`/repos/${targetRepo}/contents/.github/PATCH.md`, {
-                    method: 'PUT',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(putBody)
-                });
-
-                updateStatus('patch-status', 'success', 'PATCH.md 已寫入，Action 已觸發');
-                document.getElementById('patch-content').value = '';
-                btn.disabled = false;
-            } catch (error) {
-                updateStatus('patch-status', 'failure', error.message);
-                btn.disabled = false;
-            }
-        }
-
-        // === Pages 部署 ===
-        async function triggerPagesDeploy() {
-            const btn = document.getElementById('btn-deploy-pages');
-            const targetRepo = document.getElementById('pages-repo').value.trim();
-            const branch = document.getElementById('pages-branch').value.trim() || 'main';
-
-            if (!targetRepo || !targetRepo.includes('/')) return alert('請輸入正確目標 Repo');
-
-            btn.disabled = true;
-            updateStatus('pages-status', 'running', '正在發送 Pages 部署指令...');
-
-            try {
-                await githubAPI(`/repos/${targetRepo}/actions/workflows/pages.yml/dispatches`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ ref: branch })
-                });
-                updateStatus('pages-status', 'success', '指令已發送，請至 Actions 查看進度');
-                setTimeout(() => { btn.disabled = false; }, 3000);
-            } catch (error) {
-                updateStatus('pages-status', 'failure', error.message);
-                btn.disabled = false;
-            }
-        }
-
-        function updateStatus(prefix, status, msg) {
-            const dot = document.getElementById(`${prefix}-dot`);
-            const text = document.getElementById(`${prefix}-text`);
-            if(dot) dot.className = `status-dot ${status}`;
-            if(text) text.textContent = msg;
-        }
-
-        // === 共享包下載 / 複製 / 分享 ===
-        let currentFilesData = []; 
-
-        async function fetchFiles() {
-            const listEl = document.getElementById('file-list');
-            listEl.innerHTML = '<div style="text-align:center; color:var(--text-muted); font-size:0.9rem;">載入中...</div>';
-
-            try {
-                const data = await githubAPI(`/repos/${OWNER}/${PACKAGES_REPO}/contents/`);
-                const mdFiles = data.filter(f => f.name.endsWith('.md')).sort((a, b) => a.name.localeCompare(b.name));
-                
-                if (mdFiles.length === 0) {
-                    listEl.innerHTML = '<div style="text-align:center; color:var(--text-muted);">找不到任何 .md 檔案</div>';
-                    return;
-                }
-
-                listEl.innerHTML = '';
-                currentFilesData = []; 
-
-                for (const file of mdFiles) {
-                    let content = '';
-                    try {
-                        const res = await fetch(file.download_url);
-                        if(res.ok) content = await res.text();
-                    } catch(e) {}
-                    
-                    currentFilesData.push({ name: file.name, content: content });
-
-                    const item = document.createElement('div');
-                    item.className = 'file-item';
-                    item.innerHTML = `
-                        <div class="file-header">
-                            <span class="file-name">${file.name}</span>
-                            <span class="file-time">大小: ${(file.size / 1024).toFixed(1)} KB</span>
-                        </div>
-                        <div class="file-actions">
-                            <button class="btn-primary btn-small" onclick="downloadFile('${file.download_url}', '${file.name}')">⬇️ 下載</button>
-                            <button class="btn-success btn-small" onclick="copyFileContent('${file.name}')">📋 複製</button>
-                            <button class="btn-outline btn-small" onclick="shareFile('${file.name}')">📤 分享</button>
-                        </div>
-                    `;
-                    listEl.appendChild(item);
-                }
-            } catch (error) {
-                listEl.innerHTML = `<div style="text-align:center; color:var(--danger); font-size:0.9rem;">載入失敗: ${error.message}</div>`;
-            }
-        }
-
-        function downloadFile(url, filename) {
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = filename;
-            a.target = '_blank';
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-        }
-
-        function copyFileContent(name) {
-            const file = currentFilesData.find(f => f.name === name);
-            if (!file || !file.content) return alert('讀取內容失敗');
+      - name: "Step 7: 生成專案包 (動態領域判斷)"
+        run: |
+          jq -c '.[]' /tmp/projects.json | while read -r row; do
+            REPO=$(echo "$row" | jq -r '.repo')
+            PKG_NO=$(echo "$row" | jq -r '.pkg_no')
+            DOMAIN=$(echo "$row" | jq -r '.domain')
+            SAFE_NAME=$(echo "$REPO" | awk -F/ '{print $2}')
+            OUTPUT="build-repo/${PKG_NO}-${SAFE_NAME}.md"
             
-            navigator.clipboard.writeText(file.content).then(() => {
-                alert(`已複製 ${name} 內容`);
-            }).catch(err => {
-                alert('複製失敗，請確認瀏覽器支援。');
-            });
-        }
-
-        function shareFile(name) {
-            const file = currentFilesData.find(f => f.name === name);
-            if (!file || !file.content) return alert('讀取內容失敗');
+            echo "# 專案包：${SAFE_NAME}" > "$OUTPUT"
+            echo "" >> "$OUTPUT"
+            echo "> 生成時間：$(TZ=Asia/Hong_Kong date '+%Y-%m-%d %H:%M:%S') (HKT)" >> "$OUTPUT"
+            echo "" >> "$OUTPUT"
             
-            if (navigator.share) {
-                navigator.share({
-                    title: name,
-                    text: file.content
-                }).catch(console.error);
-            } else {
-                alert('你的瀏覽器不支援原生分享功能，請使用「複製」按鈕。');
-            }
-        }
-    </script>
-</head>
-<body>
+            proj_docs_dir="external/${SAFE_NAME}/docs/projects/${SAFE_NAME}"
+            if [ -d "$proj_docs_dir" ]; then
+              for prefix in P-01 P-02 P-05 P-06 P-07 P-08 P-09 P-12 P-13 P-98 P-99; do
+                for f in ${proj_docs_dir}/${prefix}-*.md; do
+                  if [ -f "$f" ]; then bash .github/workflows/append_file.sh "$f" "$OUTPUT" || true; fi
+                done
+              done
+            fi
+            
+            if [ -f "external/${SAFE_NAME}/meta.json" ]; then
+              echo "" >> "$OUTPUT"
+              echo "## meta.json" >> "$OUTPUT"
+              bash .github/workflows/append_file.sh "external/${SAFE_NAME}/meta.json" "$OUTPUT" || true
+            fi
 
-<div class="container">
-    <h1>🚀 AI 控制台</h1>
-    <div class="subtitle">共享包打包與遠端部署中心</div>
+            if [ "$DOMAIN" == "E" ]; then
+              for f in external/${SAFE_NAME}/E-*.md; do
+                if [ -f "$f" ]; then bash .github/workflows/append_file.sh "$f" "$OUTPUT" || true; fi
+              done
+            fi
 
-    <!-- 1. 憑證管理中心 -->
-    <div class="card" id="token-section">
-        <div class="card-title">🔑 憑證管理中心</div>
-        <input type="text" id="new-token-name" placeholder="名稱 (如：主要 GitHub)">
-        <select id="new-token-type">
-            <option value="GitHub">GitHub (用於控制台操作)</option>
-            <option value="OpenAI">OpenAI API Key</option>
-            <option value="Gemini">Gemini API Key</option>
-            <option value="Other">其他服務</option>
-        </select>
-        <input type="password" id="new-token-value" placeholder="Token 字串">
-        <button class="btn-primary" onclick="addToken()">➕ 新增 Token</button>
-        
-        <div style="margin-top: 15px; border: 1px solid var(--border); border-radius: 8px; overflow: hidden;" id="token-list">
-            <!-- Token 列表會插入這裡 -->
-        </div>
-        <p style="font-size: 0.8rem; color: var(--text-muted); margin-top: 10px;">※ 只有「GitHub」類型的 Token 可以被設為啟用，用於下方控制台功能。</p>
-    </div>
+            if [ -d "external/${SAFE_NAME}" ]; then
+              (
+                cd "external/${SAFE_NAME}" || exit 0
+                find . -type f \( -name "*.js" -o -name "*.html" -o -name "*.css" \) -not -path "./.git/*" -not -path "./docs/*" -not -path "./.github/*" | sort > /tmp/code_files.txt || true
+                if [ -s /tmp/code_files.txt ]; then
+                  {
+                    echo ""
+                    echo "## 程式碼檔案樹（僅列路徑，不讀內容）"
+                    echo ""
+                    echo "總檔數：$(wc -l < /tmp/code_files.txt)"
+                    echo ""
+                    sed 's|^\./||' /tmp/code_files.txt
+                  } >> "../../$OUTPUT"
+                fi
+              ) || true
+            fi
+          done
 
-    <!-- 2. 打包控制區 -->
-    <div class="card">
-        <div class="card-title">📦 共享包打包</div>
-        <button class="btn-primary" id="btn-trigger" onclick="triggerBuild()">
-            ▶️ 立即打包
-        </button>
-        <div class="status-box">
-            <div class="status-dot" id="build-status-dot"></div>
-            <div id="build-status-text">等待操作...</div>
-        </div>
-    </div>
+      - name: "Step 8: 生成基礎設施總包 (03-INFRA.md)"
+        run: |
+          OUTPUT="build-repo/03-INFRA.md"
+          echo "# 基礎設施總包 (INFRA)" > "$OUTPUT"
+          echo "" >> "$OUTPUT"
+          echo "> 生成時間：$(TZ=Asia/Hong_Kong date '+%Y-%m-%d %H:%M:%S') (HKT)" >> "$OUTPUT"
+          echo "> ⚠️ 給 AI 的指示：本包包含體系唯一腳本與各專案呼叫器。" >> "$OUTPUT"
+          echo "" >> "$OUTPUT"
 
-    <!-- 3. Patch 部署區 -->
-    <div class="card" id="patch-section">
-        <div class="card-title">🚀 遠端 Patch 部署</div>
-        <input type="text" id="patch-repo" placeholder="目標 Repo (如 tlee20860-dotcom/AI-WEB-APP-Family)" value="tlee20860-dotcom/AI-WEB-APP-Family">
-        <input type="text" id="patch-branch" placeholder="分支 (預設 main)" value="main">
-        <textarea id="patch-content" placeholder="請貼上 Patch 內容 (支援 ## FILE: path 語法)"></textarea>
-        <button class="btn-primary" id="btn-deploy-patch" onclick="deployPatch()">
-            ✏️ 寫入 PATCH.md 並觸發
-        </button>
-        <div class="status-box">
-            <div class="status-dot" id="patch-status-dot"></div>
-            <div id="patch-status-text">等待操作...</div>
-        </div>
-    </div>
+          echo "## 🏢 體系層：AI-infra（唯一腳本）" >> "$OUTPUT"
+          echo "" >> "$OUTPUT"
+          
+          for py in apply_patch.py validate_delivery.py; do
+            if [ -f ".github/scripts/$py" ]; then 
+              echo "### 📄 檔案：$py" >> "$OUTPUT"
+              bash .github/workflows/append_file.sh ".github/scripts/$py" "$OUTPUT" || true
+              echo "" >> "$OUTPUT"
+            fi
+          done
 
-    <!-- 4. Pages 部署區 -->
-    <div class="card" id="pages-section">
-        <div class="card-title">🌐 Pages 部署</div>
-        <input type="text" id="pages-repo" placeholder="目標 Repo (如 tlee20860-dotcom/AI-WEB-APP-Family)" value="tlee20860-dotcom/AI-WEB-APP-Family">
-        <input type="text" id="pages-branch" placeholder="分支 (預設 main)" value="main">
-        <button class="btn-primary" id="btn-deploy-pages" onclick="triggerPagesDeploy()">
-            ⚡ 觸發 Pages 部署
-        </button>
-        <div class="status-box">
-            <div class="status-dot" id="pages-status-dot"></div>
-            <div id="pages-status-text">等待操作...</div>
-        </div>
-    </div>
+          for wf in setup-structure.yml migrate.yml append_file.sh; do
+            if [ -f ".github/workflows/$wf" ]; then 
+              echo "### 📄 檔案：$wf (infra)" >> "$OUTPUT"
+              bash .github/workflows/append_file.sh ".github/workflows/$wf" "$OUTPUT" || true
+              echo "" >> "$OUTPUT"
+            fi
+          done
 
-    <!-- 5. 檔案下載區 -->
-    <div class="card" id="files-section">
-        <div class="card-title">📥 共享包獲取</div>
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-            <span style="font-size: 0.85rem; color: var(--text-muted);">從 AI-packages 獲取</span>
-            <button class="btn-outline btn-small" onclick="fetchFiles()">🔄 重新整理</button>
-        </div>
-        <div class="file-list" id="file-list">
-            <!-- 檔案列表會插入這裡 -->
-        </div>
-    </div>
-</div>
+          if [ -f "config/repos.json" ]; then 
+            echo "### 📄 檔案：config/repos.json (infra)" >> "$OUTPUT"
+            bash .github/workflows/append_file.sh "config/repos.json" "$OUTPUT" || true
+            echo "" >> "$OUTPUT"
+          fi
 
-</body>
-</html>
+          if [ -f ".gitignore" ]; then 
+            echo "### 📄 檔案：.gitignore (infra)" >> "$OUTPUT"
+            bash .github/workflows/append_file.sh ".gitignore" "$OUTPUT" || true
+            echo "" >> "$OUTPUT"
+          fi
+
+          # === AI-kernel 區塊 ===
+          echo "## 🏢 體系層：AI-kernel 的呼叫器" >> "$OUTPUT"
+          echo "" >> "$OUTPUT"
+          mkdir -p "AI-kernel/.github/workflows"
+          
+          curl -s -f -L -H "Authorization: token ${{ secrets.CROSS_REPO_PAT }}" "https://raw.githubusercontent.com/${{ env.KERNEL_REPO }}/main/.github/workflows/apply-patch.yml" -o "AI-kernel/.github/workflows/apply-patch.yml" || true
+          if [ -s "AI-kernel/.github/workflows/apply-patch.yml" ]; then
+            echo "### 📄 檔案：.github/workflows/apply-patch.yml" >> "$OUTPUT"
+            echo "" >> "$OUTPUT"
+            bash .github/workflows/append_file.sh "AI-kernel/.github/workflows/apply-patch.yml" "$OUTPUT" || true
+            echo "" >> "$OUTPUT"
+          else
+            echo "> ⚠️ 找不到 \`AI-kernel/.github/workflows/apply-patch.yml\`" >> "$OUTPUT"
+          fi
+
+          curl -s -f -L -H "Authorization: token ${{ secrets.CROSS_REPO_PAT }}" "https://raw.githubusercontent.com/${{ env.KERNEL_REPO }}/main/.github/workflows/notify.yml" -o "AI-kernel/.github/workflows/notify.yml" || true
+          if [ -s "AI-kernel/.github/workflows/notify.yml" ]; then
+            echo "### 📄 檔案：.github/workflows/notify.yml" >> "$OUTPUT"
+            echo "" >> "$OUTPUT"
+            bash .github/workflows/append_file.sh "AI-kernel/.github/workflows/notify.yml" "$OUTPUT" || true
+            echo "" >> "$OUTPUT"
+          else
+            echo "> ⚠️ 找不到 \`AI-kernel/.github/workflows/notify.yml\`" >> "$OUTPUT"
+          fi
+          
+          if [ -f "AI-kernel/.gitignore" ]; then 
+            echo "### 📄 檔案：.gitignore (AI-kernel)" >> "$OUTPUT"
+            bash .github/workflows/append_file.sh "AI-kernel/.gitignore" "$OUTPUT" || true
+            echo "" >> "$OUTPUT"
+          fi
+
+          # === AI-General 區塊 ===
+          echo "## 🏢 體系層：AI-General 的呼叫器" >> "$OUTPUT"
+          echo "" >> "$OUTPUT"
+          mkdir -p "AI-General/.github/workflows"
+          
+          curl -s -f -L -H "Authorization: token ${{ secrets.CROSS_REPO_PAT }}" "https://raw.githubusercontent.com/${{ env.GENERAL_REPO }}/main/.github/workflows/apply-patch.yml" -o "AI-General/.github/workflows/apply-patch.yml" || true
+          if [ -s "AI-General/.github/workflows/apply-patch.yml" ]; then
+            echo "### 📄 檔案：.github/workflows/apply-patch.yml" >> "$OUTPUT"
+            echo "" >> "$OUTPUT"
+            bash .github/workflows/append_file.sh "AI-General/.github/workflows/apply-patch.yml" "$OUTPUT" || true
+            echo "" >> "$OUTPUT"
+          else
+            echo "> ⚠️ 找不到 \`AI-General/.github/workflows/apply-patch.yml\`" >> "$OUTPUT"
+          fi
+
+          curl -s -f -L -H "Authorization: token ${{ secrets.CROSS_REPO_PAT }}" "https://raw.githubusercontent.com/${{ env.GENERAL_REPO }}/main/.github/workflows/notify.yml" -o "AI-General/.github/workflows/notify.yml" || true
+          if [ -s "AI-General/.github/workflows/notify.yml" ]; then
+            echo "### 📄 檔案：.github/workflows/notify.yml" >> "$OUTPUT"
+            echo "" >> "$OUTPUT"
+            bash .github/workflows/append_file.sh "AI-General/.github/workflows/notify.yml" "$OUTPUT" || true
+            echo "" >> "$OUTPUT"
+          else
+            echo "> ⚠️ 找不到 \`AI-General/.github/workflows/notify.yml\`" >> "$OUTPUT"
+          fi
+
+          if [ -f "AI-General/.gitignore" ]; then 
+            echo "### 📄 檔案：.gitignore (AI-General)" >> "$OUTPUT"
+            bash .github/workflows/append_file.sh "AI-General/.gitignore" "$OUTPUT" || true
+            echo "" >> "$OUTPUT"
+          fi
+
+          jq -c '.[]' /tmp/projects.json | while read -r row; do
+            REPO=$(echo "$row" | jq -r '.repo')
+            SAFE_NAME=$(echo "$REPO" | awk -F/ '{print $2}')
+            if [ -d "external/${SAFE_NAME}/.github/workflows" ]; then
+              echo "## 🏢 專案層：${REPO} 的呼叫器" >> "$OUTPUT"
+              echo "" >> "$OUTPUT"
+              (
+                cd "external/${SAFE_NAME}" || exit 0
+                find .github/workflows -type f | sort | while read -r file; do 
+                  echo "### 📄 檔案：${file}" >> "../../$OUTPUT"
+                  echo "" >> "../../$OUTPUT"
+                  bash "../../.github/workflows/append_file.sh" "$file" "../../$OUTPUT" || true
+                  echo "" >> "../../$OUTPUT"
+                done
+              ) || true
+            fi
+            if [ -f "external/${SAFE_NAME}/.gitignore" ]; then 
+              echo "### 📄 檔案：.gitignore (${SAFE_NAME})" >> "$OUTPUT"
+              bash .github/workflows/append_file.sh "external/${SAFE_NAME}/.gitignore" "$OUTPUT" || true
+              echo "" >> "$OUTPUT"
+            fi
+          done
+
+      - name: "Step 8.5: 生成控制台共享包 (92-Ai-github.md)"
+        run: |
+          OUTPUT="build-repo/92-Ai-github.md"
+          echo "# 92 包：AI 控制台原始碼" > "$OUTPUT"
+          echo "" >> "$OUTPUT"
+          echo "> 生成時間：$(TZ=Asia/Hong_Kong date '+%Y-%m-%d %H:%M:%S') (HKT)" >> "$OUTPUT"
+          echo "" >> "$OUTPUT"
+          
+          for f in index.html manifest.json sw.js; do
+            if [ -f "$f" ]; then 
+              bash .github/workflows/append_file.sh "$f" "$OUTPUT" || true
+            fi
+          done
+
+      - name: "Step 9: 上傳共享包"
+        run: |
+          cd AI-General
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add docs/records/STATE-INDEX.md
+          git diff --cached --quiet || (
+            git commit -m "chore: auto-update STATE-INDEX [skip ci]" && 
+            (git pull --rebase origin main || true) && 
+            git push
+          )
+
+          cd ../build-repo
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git diff --cached --quiet || (
+            git commit -m "chore: auto-build packages [skip ci]" && 
+            (git pull --rebase origin main || true) && 
+            git push
+          )
