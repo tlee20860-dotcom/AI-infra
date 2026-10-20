@@ -405,6 +405,20 @@ jobs:
             fi
           done
 
+      - name: "Step 8.5: 生成控制台共享包 (92-Ai-github.md)"
+        run: |
+          OUTPUT="build-repo/92-Ai-github.md"
+          echo "# 92 包：AI 控制台原始碼" > "$OUTPUT"
+          echo "" >> "$OUTPUT"
+          echo "> 生成時間：$(TZ=Asia/Hong_Kong date '+%Y-%m-%d %H:%M:%S') (HKT)" >> "$OUTPUT"
+          echo "" >> "$OUTPUT"
+          
+          for f in index.html manifest.json sw.js; do
+            if [ -f "$f" ]; then 
+              bash .github/workflows/append_file.sh "$f" "$OUTPUT" || true
+            fi
+          done
+
       - name: "Step 9: 上傳共享包"
         run: |
           cd AI-General
