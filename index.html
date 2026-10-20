@@ -43,7 +43,7 @@
 
         .card-title { font-size: 1.1rem; font-weight: bold; margin-bottom: 15px; display: flex; align-items: center; gap: 8px; }
 
-        input[type="password"], input[type="text"], textarea, select {
+        input[type="password"], input[type="text"], input[type="email"], textarea, select {
             width: 100%;
             padding: 12px;
             border: 1px solid var(--border);
@@ -81,14 +81,6 @@
         .btn-success { background-color: var(--success); color: white; }
         .btn-danger { background-color: var(--danger); color: white; }
         
-        .btn-google {
-            background-color: #fff;
-            color: #757575;
-            border: 1px solid #ddd;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-        }
-        .btn-google:hover:not(:disabled) { background-color: #f8f8f8; }
-
         .status-box {
             padding: 15px;
             border-radius: 8px;
@@ -145,8 +137,7 @@
     <!-- Firebase SDK -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-        // 改用 signInWithRedirect 與 getRedirectResult
-        import { getAuth, GoogleAuthProvider, signInWithRedirect, getRedirectResult, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+        import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
         import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
         const firebaseConfig = {
@@ -161,13 +152,10 @@
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
         const db = getFirestore(app);
-        const provider = new GoogleAuthProvider();
 
         window.firebaseAuth = auth;
         window.firebaseDb = db;
-        window.firebaseSignInWithRedirect = signInWithRedirect;
-        window.firebaseGetRedirectResult = getRedirectResult;
-        window.firebaseProvider = provider;
+        window.firebaseSignIn = signInWithEmailAndPassword;
         window.firebaseSignOut = signOut;
         window.firebaseOnAuthStateChanged = onAuthStateChanged;
         window.firebaseGetDoc = getDoc;
@@ -188,14 +176,9 @@
         let tokenList = [];
 
         window.onload = () => {
-            document.getElementById('btn-google-login').addEventListener('click', handleGoogleLogin);
+            document.getElementById('login-form').addEventListener('submit', handleLogin);
             
             window.addEventListener('firebaseReady', () => {
-                // 處理重新導向回來後的結果
-                window.firebaseGetRedirectResult(window.firebaseAuth).catch((error) => {
-                    alert("登入失敗: " + error.message);
-                });
-
                 window.firebaseOnAuthStateChanged(window.firebaseAuth, async (user) => {
                     if (user) {
                         document.getElementById('login-section').classList.add('hidden');
@@ -212,12 +195,21 @@
             });
         };
 
-        async function handleGoogleLogin() {
-            const btn = document.getElementById('btn-google-login');
+        async function handleLogin(e) {
+            e.preventDefault();
+            const email = document.getElementById('login-email').value;
+            const pass = document.getElementById('login-password').value;
+            const btn = document.getElementById('btn-login');
             btn.disabled = true;
-            btn.textContent = '正在跳轉...';
-            // 使用 Redirect 登入，會直接跳頁，不會被手機阻擋
-            await window.firebaseSignInWithRedirect(window.firebaseAuth, window.firebaseProvider);
+            btn.textContent = '登入中...';
+            try {
+                await window.firebaseSignIn(window.firebaseAuth, email, pass);
+            } catch (error) {
+                alert('登入失敗：' + error.message);
+            } finally {
+                btn.disabled = false;
+                btn.textContent = '登入';
+            }
         }
 
         function logout() {
@@ -573,13 +565,15 @@
     <h1>🚀 AI 控制台</h1>
     <div class="subtitle">共享包打包與遠端部署中心</div>
 
-    <!-- 登入區塊 -->
+    <!-- 登入區塊 (Email / 密碼) -->
     <div class="card" id="login-section">
         <div class="card-title">🔐 系統登入</div>
-        <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 15px;">請使用您的 Google 帳號快速登入</p>
-        <button class="btn-google" id="btn-google-login">
-            <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" width="18" height="18" alt="G" /> 使用 Google 登入
-        </button>
+        <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 15px;">請輸入您在 Firebase 設定的帳號密碼</p>
+        <form id="login-form">
+            <input type="email" id="login-email" placeholder="Email (例如 ken@test.com)" required>
+            <input type="password" id="login-password" placeholder="密碼" required>
+            <button type="submit" class="btn-primary" id="btn-login">登入</button>
+        </form>
     </div>
 
     <!-- 主功能區塊 -->
