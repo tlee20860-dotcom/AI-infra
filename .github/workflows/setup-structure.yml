@@ -227,55 +227,96 @@ jobs:
             if [ -f "$f" ]; then bash .github/workflows/append_file.sh "$f" "$OUTPUT" || true; fi
           done
 
-      - name: "Step 7: 生成專案包 (動態領域判斷)"
+      - name: "Step 7: 生成專案包 (Map / P / All-code 拆分)"
         run: |
           jq -c '.[]' /tmp/projects.json | while read -r row; do
             REPO=$(echo "$row" | jq -r '.repo')
             PKG_NO=$(echo "$row" | jq -r '.pkg_no')
             DOMAIN=$(echo "$row" | jq -r '.domain')
+            CODE=$(echo "$row" | jq -r '.code')
             SAFE_NAME=$(echo "$REPO" | awk -F/ '{print $2}')
-            OUTPUT="build-repo/${PKG_NO}-${SAFE_NAME}.md"
             
-            echo "# 專案包：${SAFE_NAME}" > "$OUTPUT"
-            echo "" >> "$OUTPUT"
-            echo "> 生成時間：$(TZ=Asia/Hong_Kong date '+%Y-%m-%d %H:%M:%S') (HKT)" >> "$OUTPUT"
-            echo "" >> "$OUTPUT"
-            
-            proj_docs_dir="external/${SAFE_NAME}/docs/projects/${SAFE_NAME}"
-            if [ -d "$proj_docs_dir" ]; then
-              for prefix in P-01 P-02 P-05 P-06 P-07 P-08 P-09 P-12 P-13 P-98 P-99; do
-                for f in ${proj_docs_dir}/${prefix}-*.md; do
-                  if [ -f "$f" ]; then bash .github/workflows/append_file.sh "$f" "$OUTPUT" || true; fi
-                done
-              done
-            fi
-            
-            if [ -f "external/${SAFE_NAME}/meta.json" ]; then
-              echo "" >> "$OUTPUT"
-              echo "## meta.json" >> "$OUTPUT"
-              bash .github/workflows/append_file.sh "external/${SAFE_NAME}/meta.json" "$OUTPUT" || true
-            fi
+            # 定義三個檔案輸出路徑
+            OUTPUT_MAP="build-repo/${PKG_NO}-${SAFE_NAME}-Map.md"
+            OUTPUT_P="build-repo/${PKG_NO}-${SAFE_NAME}-P.md"
+            OUTPUT_CODE="build-repo/${PKG_NO}-${SAFE_NAME}-All-code.md"
 
-            if [ "$DOMAIN" == "E" ]; then
-              for f in external/${SAFE_NAME}/E-*.md; do
-                if [ -f "$f" ]; then bash .github/workflows/append_file.sh "$f" "$OUTPUT" || true; fi
-              done
+            # 初始化標頭
+            echo "# 專案地圖包：${SAFE_NAME}" > "$OUTPUT_MAP"
+            echo "" >> "$OUTPUT_MAP"
+            echo "> 生成時間：$(TZ=Asia/Hong_Kong date '+%Y-%m-%d %H:%M:%S') (HKT)" >> "$OUTPUT_MAP"
+            echo "" >> "$OUTPUT_MAP"
+
+            echo "# 專案 P 檔總集：${SAFE_NAME}" > "$OUTPUT_P"
+            echo "" >> "$OUTPUT_P"
+            echo "> 生成時間：$(TZ=Asia/Hong_Kong date '+%Y-%m-%d %H:%M:%S') (HKT)" >> "$OUTPUT_P"
+            echo "" >> "$OUTPUT_P"
+
+            echo "# 專案全程式碼包：${SAFE_NAME}" > "$OUTPUT_CODE"
+            echo "" >> "$OUTPUT_CODE"
+            echo "> 生成時間：$(TZ=Asia/Hong_Kong date '+%Y-%m-%d %H:%M:%S') (HKT)" >> "$OUTPUT_CODE"
+            echo "" >> "$OUTPUT_CODE"
+
+            # 1. 填充 Map 包 (meta.json + 檔案樹)
+            if [ -f "external/${SAFE_NAME}/meta.json" ]; then
+              echo "## meta.json" >> "$OUTPUT_MAP"
+              bash .github/workflows/append_file.sh "external/${SAFE_NAME}/meta.json" "$OUTPUT_MAP" || true
+              echo "" >> "$OUTPUT_MAP"
             fi
 
             if [ -d "external/${SAFE_NAME}" ]; then
               (
                 cd "external/${SAFE_NAME}" || exit 0
-                find . -type f \( -name "*.js" -o -name "*.html" -o -name "*.css" \) -not -path "./.git/*" -not -path "./docs/*" -not -path "./.github/*" | sort > /tmp/code_files.txt || true
-                if [ -s /tmp/code_files.txt ]; then
+                find . -type f \( -name "*.js" -o -name "*.html" -o -name "*.css" -o -name "*.json" -o -name "*.yml" -o -name "*.md" \) -not -path "./.git/*" -not -path "./node_modules/*" | sort > /tmp/all_files.txt || true
+                if [ -s /tmp/all_files.txt ]; then
                   {
-                    echo ""
                     echo "## 程式碼檔案樹（僅列路徑，不讀內容）"
                     echo ""
-                    echo "總檔數：$(wc -l < /tmp/code_files.txt)"
+                    echo "總檔數：$(wc -l < /tmp/all_files.txt)"
                     echo ""
-                    sed 's|^\./||' /tmp/code_files.txt
-                  } >> "../../$OUTPUT"
+                    sed 's|^\./||' /tmp/all_files.txt
+                  } >> "../../$OUTPUT_MAP"
                 fi
+              ) || true
+            fi
+
+            # 2. 填充 P 包 (智慧抓取所有 P-*.md)
+            P_FOUND=false
+            # 嘗試匹配可能的資料夾名稱
+            for P_DIR_NAME in "web-app-family" "webapp" "${SAFE_NAME}" "AI-WEB-APP-Family"; do
+              P_DIR="external/${SAFE_NAME}/docs/projects/${P_DIR_NAME}"
+              if [ -d "$P_DIR" ]; then
+                P_FOUND=true
+                for f in ${P_DIR}/*.md; do
+                  if [ -f "$f" ]; then bash .github/workflows/append_file.sh "$f" "$OUTPUT_P" || true; fi
+                done
+                break
+              fi
+            done
+            
+            # 如果沒在特定資料夾找到，去 docs/projects/ 下全面搜尋
+            if [ "$P_FOUND" = false ] && [ -d "external/${SAFE_NAME}/docs/projects" ]; then
+               (
+                 cd "external/${SAFE_NAME}" || exit 0
+                 find docs/projects -type f -name "P-*.md" -not -path "*/.git/*" | sort | while read -r f; do
+                   bash "../../.github/workflows/append_file.sh" "$f" "../../$OUTPUT_P" || true
+                 done
+               ) || true
+            fi
+
+            # 3. 填充 All-code 包 (排除 yml, md, docs, .github)
+            if [ -d "external/${SAFE_NAME}" ]; then
+              (
+                cd "external/${SAFE_NAME}" || exit 0
+                find . -type f \( -name "*.js" -o -name "*.html" -o -name "*.css" -o -name "*.json" \) \
+                  -not -path "./.git/*" \
+                  -not -path "./node_modules/*" \
+                  -not -path "./docs/*" \
+                  -not -path "./.github/*" | sort | while read -r f; do
+                  if [ -f "$f" ]; then 
+                    bash "../../.github/workflows/append_file.sh" "$f" "../../$OUTPUT_CODE" || true
+                  fi
+                done
               ) || true
             fi
           done
