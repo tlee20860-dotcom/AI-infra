@@ -1,4 +1,4 @@
-const CACHE_NAME = 'ai-console-v1';
+const CACHE_NAME = 'ai-console-v2';
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
@@ -54,3 +54,9 @@ self.addEventListener('fetch', (event) => {
       })
   );
 });
+
+/* ═══ EOF ═══
+F: AI-infra/sw.js
+V: 1792581601
+W: ai-system-20261021-005#2
+═══ */
