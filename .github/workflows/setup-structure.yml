@@ -533,6 +533,17 @@ jobs:
             fi
           done
 
+      - name: "Step 9.8: 交付驗證報告（report 模式，不擋）"
+        run: |
+          if [ ! -f ".github/scripts/validate_delivery.py" ]; then
+            echo "[SKIP] validate_delivery.py 不存在"
+            exit 0
+          fi
+          CHANGED=$(find AI-kernel/docs AI-General/docs -type f -name "*.md" 2>/dev/null || true)
+          export CHANGED_FILES="$CHANGED"
+          export VALIDATE_MODE=report
+          python3 .github/scripts/validate_delivery.py || true
+
       - name: "Step 10: 上傳共享包與專案索引"
         run: |
           # 1. 提交體系 STATE-INDEX
@@ -593,6 +604,6 @@ jobs:
 
 # ═══ EOF ═══
 # F: AI-infra/.github/workflows/setup-structure.yml
-# V: 1792600034
-# W: ai-system-20261021-006#12
+# V: 1792600035
+# W: ai-system-20261021-006#13
 # ═══ EOF ═══
