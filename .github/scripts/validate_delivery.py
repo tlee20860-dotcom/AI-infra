@@ -30,14 +30,22 @@ def check_eof(content):
         return f"V 不是 10 位 Unix epoch（{v}）"
     return None
 
-def check_inner_backticks(path, content):
+def check_file_boundary(path, content):
     if not path.endswith(".md"):
         return None
-    # F-004 例外：外層用四反引號包裹時，內層三反引號合法
-    if "````" in content:
-        return None
-    if "```" in content:
-        return "md 內含三反引號（F-004），且無四反引號外層"
+    lines = [line.strip() for line in content.splitlines() if line.strip()]
+    if not lines:
+        return "檔案為空"
+    
+    first_line = lines[0]
+    last_line = lines[-1]
+    
+    # 檢查是否以反引號開頭/結尾（防止整檔被包裹）
+    if first_line.startswith("```") or first_line.startswith("````"):
+        return "檔案第一行以反引號開頭（F-004）"
+    if last_line.endswith("```") or last_line.endswith("````"):
+        return "檔案最後一行以反引號結尾（F-004）"
+    
     return None
 
 def check_head(content):
@@ -54,10 +62,10 @@ def validate(path, content):
     problems = []
     for label, fn in (
         ("EOF", lambda c: check_eof(c)),
-        ("內層反引號", lambda c: check_inner_backticks(path, c)),
+        ("檔案邊界", lambda c: check_file_boundary(path, c)),
         ("開頭標題", lambda c: check_head(c)),
     ):
-        if label == "內層反引號" and not path.endswith(".md"):
+        if label == "檔案邊界" and not path.endswith(".md"):
             continue
         err = fn(content)
         if err:
