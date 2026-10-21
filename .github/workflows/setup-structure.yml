@@ -547,7 +547,7 @@ jobs:
           )
           cd ..
 
-          # 2. 提交專案 WF-STATE-INDEX
+          # 2. 提交專案 WF-STATE-INDEX (防呆：確認檔案存在才 add)
           jq -c '.[]' /tmp/projects.json | while read -r row; do
             REPO=$(echo "$row" | jq -r '.repo')
             SAFE_NAME=$(echo "$REPO" | awk -F/ '{print $2}')
@@ -556,15 +556,21 @@ jobs:
               cd "external/${SAFE_NAME}"
               git config user.name "github-actions[bot]"
               git config user.email "github-actions[bot]@users.noreply.github.com"
-              git add docs/projects/*/WF-STATE-INDEX.md
               
-              if ! git diff --cached --quiet; then
-                git commit -m "chore: auto-update WF-STATE-INDEX [skip ci]"
-                git pull --rebase origin main || true
-                git push
-                echo "Pushed WF-STATE-INDEX for $SAFE_NAME"
+              # 尋找是否有生成 WF-STATE-INDEX.md
+              TARGET_FILES=$(find docs/projects -name "WF-STATE-INDEX.md")
+              if [ -n "$TARGET_FILES" ]; then
+                git add $TARGET_FILES
+                if ! git diff --cached --quiet; then
+                  git commit -m "chore: auto-update WF-STATE-INDEX [skip ci]"
+                  git pull --rebase origin main || true
+                  git push
+                  echo "Pushed WF-STATE-INDEX for $SAFE_NAME"
+                else
+                  echo "No changes in WF-STATE-INDEX for $SAFE_NAME"
+                fi
               else
-                echo "No changes in WF-STATE-INDEX for $SAFE_NAME"
+                echo "No WF-STATE-INDEX generated for $SAFE_NAME"
               fi
               cd ../..
             fi
