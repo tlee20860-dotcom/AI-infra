@@ -189,7 +189,7 @@ jobs:
           echo "> 生成時間：$(TZ=Asia/Hong_Kong date '+%Y-%m-%d %H:%M:%S') (HKT)" >> "$OUTPUT"
           echo "" >> "$OUTPUT"
           
-          for f in R-03-terms R-00-rules R-02-patterns R-04-learning; do
+          for f in R-03-terms R-00-rules R-02-patterns R-04-learning R-05-dsl-map; do
             FILE_PATH="AI-kernel/docs/r-rules/${f}.md"
             if [ -f "$FILE_PATH" ]; then 
               bash .github/workflows/append_file.sh "$FILE_PATH" "$OUTPUT" || true
@@ -236,7 +236,7 @@ jobs:
           echo "---" >> "$OUTPUT"
           echo "" >> "$OUTPUT"
 
-          for f in AI-General/docs/records/SYSTEM-HANDOFF.md AI-General/docs/records/PROGRESS.md AI-General/docs/records/SYSTEM-CONCLUSION.md AI-General/docs/records/STATE-INDEX.md; do
+          for f in AI-General/docs/records/SYSTEM-HANDOFF.md AI-General/docs/records/PROGRESS.md AI-General/docs/records/SYSTEM-CONCLUSION.md AI-General/docs/records/SYSTEM-REJECTED.md AI-General/docs/records/SYSTEM-DEBT.md AI-General/docs/records/STATE-INDEX.md; do
             if [ -f "$f" ]; then bash .github/workflows/append_file.sh "$f" "$OUTPUT" || true; fi
           done
 
@@ -593,6 +593,6 @@ jobs:
 
 # ═══ EOF ═══
 # F: AI-infra/.github/workflows/setup-structure.yml
-# V: 1792589004
-# W: ai-system-20261021-005#4
+# V: 1792600034
+# W: ai-system-20261021-006#12
 # ═══ EOF ═══
