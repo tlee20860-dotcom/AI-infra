@@ -291,7 +291,7 @@ jobs:
               ) || true
             fi
 
-            # 2. 填充 P 包 (智慧抓取所有 P-*.md)
+            # 2. 填充 P 包 (智慧抓取所有 P-*.md 與 WF-*.md)
             P_FOUND=false
             # 嘗試匹配可能的資料夾名稱
             for P_DIR_NAME in "web-app-family" "webapp" "${SAFE_NAME}" "AI-WEB-APP-Family"; do
@@ -309,7 +309,7 @@ jobs:
             if [ "$P_FOUND" = false ] && [ -d "external/${SAFE_NAME}/docs/projects" ]; then
                (
                  cd "external/${SAFE_NAME}" || exit 0
-                 find docs/projects -type f -name "P-*.md" -not -path "*/.git/*" | sort | while read -r f; do
+                 find docs/projects -type f \( -name "P-*.md" -o -name "WF-*.md" \) -not -path "*/.git/*" | sort | while read -r f; do
                    bash "../../.github/workflows/append_file.sh" "$f" "../../$OUTPUT_P" || true
                  done
                ) || true
