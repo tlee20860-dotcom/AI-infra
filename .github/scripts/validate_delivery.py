@@ -33,8 +33,11 @@ def check_eof(content):
 def check_inner_backticks(path, content):
     if not path.endswith(".md"):
         return None
+    # F-004 例外：外層用四反引號包裹時，內層三反引號合法
+    if "````" in content:
+        return None
     if "```" in content:
-        return "md 內含三反引號（F-004）"
+        return "md 內含三反引號（F-004），且無四反引號外層"
     return None
 
 def check_head(content):
