@@ -1,11 +1,10 @@
-const CACHE_NAME = 'ai-console-v2';
+const CACHE_NAME = 'ai-console-v3';
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
   './manifest.json'
 ];
 
-// 安裝 Service Worker 並快取基本檔案
 self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
@@ -15,7 +14,6 @@ self.addEventListener('install', (event) => {
   self.skipWaiting();
 });
 
-// 啟用並清理舊快取
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys().then((cacheNames) => {
@@ -31,9 +29,7 @@ self.addEventListener('activate', (event) => {
   self.clients.claim();
 });
 
-// 攔截請求，優先使用網路，失敗則使用快取
 self.addEventListener('fetch', (event) => {
-  // 只快取 GET 請求，且排除 GitHub API 呼叫
   if (event.request.method !== 'GET' || event.request.url.includes('api.github.com')) {
     return;
   }
@@ -41,7 +37,6 @@ self.addEventListener('fetch', (event) => {
   event.respondWith(
     fetch(event.request)
       .then((response) => {
-        // 如果請求成功，複製一份到快取
         const responseClone = response.clone();
         caches.open(CACHE_NAME).then((cache) => {
           cache.put(event.request, responseClone);
@@ -49,7 +44,6 @@ self.addEventListener('fetch', (event) => {
         return response;
       })
       .catch(() => {
-        // 如果網路失敗，從快取讀取
         return caches.match(event.request);
       })
   );
@@ -57,6 +51,6 @@ self.addEventListener('fetch', (event) => {
 
 /* ═══ EOF ═══
 F: AI-infra/sw.js
-V: 1792581601
-W: ai-system-20261021-005#2
+V: 1792582001
+W: ai-system-20261021-005#5
 ═══ */
