@@ -157,6 +157,17 @@ jobs:
             echo "═══ */"
           } > "$OUTPUT"
 
+      - name: "Step 1.9: 生成 I 包 (I00.md)"
+        run: |
+          OUTPUT="build-repo/I00.md"
+          echo "# I 包：身份與信仰" > "$OUTPUT"
+          echo "" >> "$OUTPUT"
+          echo "> 生成時間：$(TZ=Asia/Hong_Kong date '+%Y-%m-%d %H:%M:%S') (HKT)" >> "$OUTPUT"
+          echo "" >> "$OUTPUT"
+          if [ -f "AI-kernel/docs/a-guide/I-00-identity.md" ]; then 
+            bash .github/workflows/append_file.sh "AI-kernel/docs/a-guide/I-00-identity.md" "$OUTPUT" || true
+          fi
+
       - name: "Step 2: 生成 A 包 (A00.md)"
         run: |
           OUTPUT="build-repo/A00.md"
@@ -176,7 +187,7 @@ jobs:
           echo "> 生成時間：$(TZ=Asia/Hong_Kong date '+%Y-%m-%d %H:%M:%S') (HKT)" >> "$OUTPUT"
           echo "" >> "$OUTPUT"
           
-          for f in R-00-rules R-03-terms R-02-patterns R-04-learning R-01-mapping; do
+          for f in R-00-rules R-03-terms R-02-patterns R-04-learning; do
             FILE_PATH="AI-kernel/docs/r-rules/${f}.md"
             if [ -f "$FILE_PATH" ]; then 
               bash .github/workflows/append_file.sh "$FILE_PATH" "$OUTPUT" || true
@@ -217,9 +228,9 @@ jobs:
           
           echo "---" >> "$OUTPUT"
           echo "⚠️ **【給 AI 的強制前置檢查】**" >> "$OUTPUT"
-          echo "請立刻確認：你是否已經讀取 \`A00.md\`（啟動包）？" >> "$OUTPUT"
-          echo "1. 如果「否」或「不確定」，請立刻停止閱讀本檔，先去讀取 \`A00.md\`，載入引導協議與防呆規則。" >> "$OUTPUT"
-          echo "2. 如果「是」，請依據 \`A00.md\` 輸出載入確認。" >> "$OUTPUT"
+          echo "請立刻確認：你是否已經讀取 \`I00.md\`、\`A00.md\`、\`R00.md\`、\`U00.md\`（體系四檔）？" >> "$OUTPUT"
+          echo "1. 如果「否」或「不確定」，請立刻停止閱讀本檔，先去讀取缺漏的檔案，載入身份、流程、規則與偏好。" >> "$OUTPUT"
+          echo "2. 如果「是」，請依據 \`I00.md\` 與 \`A00.md\` 輸出載入確認。" >> "$OUTPUT"
           echo "---" >> "$OUTPUT"
           echo "" >> "$OUTPUT"
 
