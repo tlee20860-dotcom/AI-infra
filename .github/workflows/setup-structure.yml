@@ -558,7 +558,12 @@ jobs:
               git config user.email "github-actions[bot]@users.noreply.github.com"
               
               # 尋找是否有生成 WF-STATE-INDEX.md
-              TARGET_FILES=$(find docs/projects -name "WF-STATE-INDEX.md")
+              if [ -d "docs/projects" ]; then
+                TARGET_FILES=$(find docs/projects -name "WF-STATE-INDEX.md")
+              else
+                TARGET_FILES=""
+              fi
+
               if [ -n "$TARGET_FILES" ]; then
                 git add $TARGET_FILES
                 if ! git diff --cached --quiet; then
