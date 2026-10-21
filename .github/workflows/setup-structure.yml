@@ -157,9 +157,9 @@ jobs:
             echo "═══ */"
           } > "$OUTPUT"
 
-      - name: "Step 1.9: 生成 I 包 (I00.md)"
+      - name: "Step 1.9: 生成 I 包 (IP.md)"
         run: |
-          OUTPUT="build-repo/I00.md"
+          OUTPUT="build-repo/IP.md"
           echo "# I 包：身份與信仰" > "$OUTPUT"
           echo "" >> "$OUTPUT"
           echo "> 生成時間：$(TZ=Asia/Hong_Kong date '+%Y-%m-%d %H:%M:%S') (HKT)" >> "$OUTPUT"
@@ -168,9 +168,9 @@ jobs:
             bash .github/workflows/append_file.sh "AI-kernel/docs/a-guide/I-00-identity.md" "$OUTPUT" || true
           fi
 
-      - name: "Step 2: 生成 A 包 (A00.md)"
+      - name: "Step 2: 生成 A 包 (AP.md)"
         run: |
-          OUTPUT="build-repo/A00.md"
+          OUTPUT="build-repo/AP.md"
           echo "# A 包：啟動引導與角色定義" > "$OUTPUT"
           echo "" >> "$OUTPUT"
           echo "> 生成時間：$(TZ=Asia/Hong_Kong date '+%Y-%m-%d %H:%M:%S') (HKT)" >> "$OUTPUT"
@@ -179,24 +179,24 @@ jobs:
             bash .github/workflows/append_file.sh "AI-kernel/docs/a-guide/A-00-guide.md" "$OUTPUT" || true
           fi
 
-      - name: "Step 3: 生成 R 包 (R00.md)"
+      - name: "Step 3: 生成 R 包 (RP.md)"
         run: |
-          OUTPUT="build-repo/R00.md"
+          OUTPUT="build-repo/RP.md"
           echo "# R 包：規則總覽" > "$OUTPUT"
           echo "" >> "$OUTPUT"
           echo "> 生成時間：$(TZ=Asia/Hong_Kong date '+%Y-%m-%d %H:%M:%S') (HKT)" >> "$OUTPUT"
           echo "" >> "$OUTPUT"
           
-          for f in R-00-rules R-03-terms R-02-patterns R-04-learning; do
+          for f in R-03-terms R-00-rules R-02-patterns R-04-learning; do
             FILE_PATH="AI-kernel/docs/r-rules/${f}.md"
             if [ -f "$FILE_PATH" ]; then 
               bash .github/workflows/append_file.sh "$FILE_PATH" "$OUTPUT" || true
             fi
           done
 
-      - name: "Step 4: 生成 U 包 (U00.md)"
+      - name: "Step 4: 生成 U 包 (UP.md)"
         run: |
-          OUTPUT="build-repo/U00.md"
+          OUTPUT="build-repo/UP.md"
           echo "# U 包：使用者通用描述" > "$OUTPUT"
           echo "" >> "$OUTPUT"
           echo "> 生成時間：$(TZ=Asia/Hong_Kong date '+%Y-%m-%d %H:%M:%S') (HKT)" >> "$OUTPUT"
@@ -205,9 +205,9 @@ jobs:
             bash .github/workflows/append_file.sh "AI-kernel/docs/u-profile/U-00-profile.md" "$OUTPUT" || true
           fi
 
-      - name: "Step 5: 生成 W 包 (W00.md)（若存在）"
+      - name: "Step 5: 生成 W 包 (WP.md)（若存在）"
         run: |
-          OUTPUT="build-repo/W00.md"
+          OUTPUT="build-repo/WP.md"
           if [ -d "AI-kernel/docs/skills/W" ]; then
             echo "# W 包：Web App 領域技能" > "$OUTPUT"
             echo "" >> "$OUTPUT"
@@ -218,9 +218,9 @@ jobs:
             done
           fi
 
-      - name: "Step 6: 生成 S00 包 (S00-ai-system.md)"
+      - name: "Step 6: 生成 S 包 (SP.md)"
         run: |
-          OUTPUT="build-repo/S00-ai-system.md"
+          OUTPUT="build-repo/SP.md"
           echo "# AI 對話系統 - 體系狀態包" > "$OUTPUT"
           echo "" >> "$OUTPUT"
           echo "> 生成時間：$(TZ=Asia/Hong_Kong date '+%Y-%m-%d %H:%M:%S') (HKT)" >> "$OUTPUT"
@@ -228,13 +228,13 @@ jobs:
           
           echo "---" >> "$OUTPUT"
           echo "⚠️ **【給 AI 的強制前置檢查】**" >> "$OUTPUT"
-          echo "請立刻確認：你是否已經讀取 \`I00.md\`、\`A00.md\`、\`R00.md\`、\`U00.md\`（體系四檔）？" >> "$OUTPUT"
+          echo "請立刻確認：你是否已經讀取 \`IP.md\`、\`AP.md\`、\`RP.md\`、\`UP.md\`（體系四檔）？" >> "$OUTPUT"
           echo "1. 如果「否」或「不確定」，請立刻停止閱讀本檔，先去讀取缺漏的檔案，載入身份、流程、規則與偏好。" >> "$OUTPUT"
-          echo "2. 如果「是」，請依據 \`I00.md\` 與 \`A00.md\` 輸出載入確認。" >> "$OUTPUT"
+          echo "2. 如果「是」，請依據 \`IP.md\` 與 \`AP.md\` 輸出載入確認。" >> "$OUTPUT"
           echo "---" >> "$OUTPUT"
           echo "" >> "$OUTPUT"
 
-          for f in AI-General/docs/records/SYSTEM-HANDOFF.md AI-General/docs/records/PROGRESS.md AI-General/docs/records/STATE-INDEX.md AI-General/docs/records/SYSTEM-CONCLUSION.md; do
+          for f in AI-General/docs/records/SYSTEM-HANDOFF.md AI-General/docs/records/PROGRESS.md AI-General/docs/records/SYSTEM-CONCLUSION.md AI-General/docs/records/STATE-INDEX.md; do
             if [ -f "$f" ]; then bash .github/workflows/append_file.sh "$f" "$OUTPUT" || true; fi
           done
 
