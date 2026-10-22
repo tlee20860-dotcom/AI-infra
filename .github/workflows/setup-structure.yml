@@ -549,6 +549,36 @@ jobs:
             fi
           done
 
+      - name: "Step 9.3: 生成歷史檔案包 (HISTORY.md)"
+        run: |
+          OUTPUT="build-repo/HISTORY.md"
+          SRC_FILES="AI-General/docs/records/SYSTEM-EVOLUTION.md AI-General/docs/records/SYSTEM-REJECTED.md AI-General/docs/records/SYSTEM-DEBT.md AI-kernel/docs/r-rules/R-04-learning.md"
+
+          MISSING=""
+          for f in $SRC_FILES; do
+            if [ ! -f "$f" ]; then
+              MISSING="$MISSING $f"
+            fi
+          done
+
+          if [ -n "$MISSING" ]; then
+            echo "[FAIL] HISTORY.md 生成中止：缺源檔$MISSING"
+            rm -f "$OUTPUT"
+            exit 1
+          fi
+
+          echo "# 歷史檔案包 (HISTORY)" > "$OUTPUT"
+          echo "" >> "$OUTPUT"
+          echo "> 生成時間：$(TZ=Asia/Hong_Kong date '+%Y-%m-%d %H:%M:%S') (HKT)" >> "$OUTPUT"
+          echo "> ⚠️ 給 AI 的指示：本包為歷史台帳與進化史，供查閱與追溯；不含會變動的 STATE-INDEX。" >> "$OUTPUT"
+          echo "" >> "$OUTPUT"
+
+          for f in $SRC_FILES; do
+            bash .github/workflows/append_file.sh "$f" "$OUTPUT" || { rm -f "$OUTPUT"; exit 1; }
+          done
+
+          echo "[OK] HISTORY.md 已生成。"
+
       - name: "Step 9.5: 生成控制台共享包 (92-Ai-github.md)"
         run: |
           OUTPUT="build-repo/92-Ai-github.md"
@@ -634,6 +664,6 @@ jobs:
 
 # ═══ EOF ═══
 # F: AI-infra/.github/workflows/setup-structure.yml
-# V: 1792607001
-# W: ai-system-20261022-007#73#1
+# V: 1792700006
+# W: ai-system-20261022-009#6
 # ═══ EOF ═══
