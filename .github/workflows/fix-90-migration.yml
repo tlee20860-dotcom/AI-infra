@@ -1,0 +1,75 @@
+# ============================================
+# fix-90-migration.yml — 修正遷移腳本誤搬的 app-*.js
+# 用途：將 old 倉中 8 個新架構 app-*.js 移回 90 倉
+# ============================================
+
+name: Fix 90 Migration
+
+on:
+  workflow_dispatch:
+
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout 90 (src)
+        uses: actions/checkout@v4
+        with:
+          repository: tlee20860-dotcom/AI-WEB-APP-Family
+          token: ${{ secrets.CROSS_REPO_PAT }}
+          path: src
+
+      - name: Checkout old (dst)
+        uses: actions/checkout@v4
+        with:
+          repository: tlee20860-dotcom/old-AI-WA-FAMILY
+          token: ${{ secrets.CROSS_REPO_PAT }}
+          path: dst
+
+      - name: Move app-*.js back to 90
+        run: |
+          echo "=== 搬移新架構 JS 回 90 ==="
+          mkdir -p src/js
+          for f in app-core.js app-data.js app-domain.js app-entities.js app-pages-core.js app-pages-reports.js app-ui.js app-widgets.js; do
+            if [ -f "dst/js/$f" ]; then
+              mv "dst/js/$f" "src/js/$f"
+              echo "Moved $f"
+            fi
+          done
+
+      - name: Commit and Push src (90)
+        run: |
+          cd src
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add js/
+          if git diff --cached --quiet; then
+            echo "No changes in src"
+          else
+            git commit -m "fix: restore app-*.js from old repo"
+            git pull --rebase origin main || true
+            git push
+          fi
+
+      - name: Commit and Push dst (old)
+        run: |
+          cd dst
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -A
+          if git diff --cached --quiet; then
+            echo "No changes in dst"
+          else
+            git commit -m "fix: remove app-*.js mistakenly moved here"
+            git pull --rebase origin main || true
+            git push
+          fi
+
+# ═══ EOF ═══
+# F: AI-infra/.github/workflows/fix-90-migration.yml
+# V: 1792710000
+# W: ai-system-20261022-009#1
+# ═══ EOF ═══
