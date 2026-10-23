@@ -6,7 +6,7 @@
 name: Migrate 90 to old
 
 on:
-  workflow_dispatch: # 僅允許手動觸發
+  workflow_dispatch:
 
 jobs:
   migrate:
@@ -25,7 +25,7 @@ jobs:
       - name: Checkout old (dst)
         uses: actions/checkout@v4
         with:
-          repository: tlee20860-dotcom/old-AI-WEB-APP-FAMILY
+          repository: tlee20860-dotcom/old-AI-WA-FAMILY
           token: ${{ secrets.CROSS_REPO_PAT }}
           path: dst
 
@@ -100,6 +100,7 @@ jobs:
           git add -A
           git diff --cached --quiet || (
             git commit -m "chore: migrate old files from AI-WEB-APP-Family" && 
+            git pull --rebase origin main || true &&
             git push
           )
 
@@ -110,12 +111,13 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add -A
           git diff --cached --quiet || (
-            git commit -m "chore: remove old files (migrated to old-AI-WEB-APP-FAMILY)" && 
+            git commit -m "chore: remove old files (migrated to old-AI-WA-FAMILY)" && 
+            git pull --rebase origin main || true &&
             git push
           )
 
 # ═══ EOF ═══
 # F: AI-infra/.github/workflows/migrate-90-to-old.yml
-# V: 1792708000
+# V: 1792708004
 # W: ai-system-20261022-009#1
 # ═══ EOF ═══
