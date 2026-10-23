@@ -28,7 +28,6 @@ jobs:
           
           echo '[' > /tmp/projects_array.json
           
-          # 抓取時排除 old 倉，避免與下方手動追加重複
           REPOS=$(gh search repos --owner tlee20860-dotcom --topic ai-systems --json name,owner --jq '.[] | select(.name != "AI-kernel" and .name != "AI-General" and .name != "AI-infra" and .name != "AI-packages" and .name != "old-AI-WA-FAMILY") | .owner.login + "/" + .name')
           
           FIRST=true
@@ -51,7 +50,6 @@ jobs:
             echo "    {\"repo\": \"$REPO\", \"domain\": \"$DOMAIN\", \"code\": \"$CODE\", \"display\": \"$DISPLAY\", \"pkg_no\": \"$PKG_NO\"}" >> /tmp/projects_array.json
           done
 
-          # 顯式追加 old-AI-WA-FAMILY
           OLD_REPO="tlee20860-dotcom/old-AI-WA-FAMILY"
           OLD_META=$(curl -s -H "Authorization: token $GH_TOKEN" "https://raw.githubusercontent.com/$OLD_REPO/main/meta.json")
           if echo "$OLD_META" | grep -q "pkg_no"; then
@@ -293,16 +291,14 @@ jobs:
             DISPLAY=$(echo "$row" | jq -r '.display // "-"')
             SAFE_NAME=$(echo "$REPO" | awk -F/ '{print $2}')
             
-            PROJ_DIR="external/${SAFE_NAME}/docs/projects"
-            if [ ! -d "$PROJ_DIR" ]; then continue; fi
-
-            TARGET_DIR=$(find "$PROJ_DIR" -maxdepth 1 -mindepth 1 -type d | head -n 1)
-            if [ -z "$TARGET_DIR" ]; then continue; fi
+            # 動態尋找包含 WF-PROGRESS.md 的目錄 (相容 docs/records 與 docs/projects)
+            PROJ_DIR=$(find "external/${SAFE_NAME}/docs" -type f -name "WF-PROGRESS.md" -exec dirname {} \; 2>/dev/null | head -n 1)
+            if [ -z "$PROJ_DIR" ]; then continue; fi
 
             TMP_TABLE="/tmp/state-index-${SAFE_NAME}.txt"
             > "$TMP_TABLE"
             
-            find "$TARGET_DIR" -type f -name "*.md" -not -name "WF-STATE-INDEX.md" | sort | while read -r f; do
+            find "$PROJ_DIR" -type f -name "*.md" -not -name "WF-STATE-INDEX.md" | sort | while read -r f; do
               V=$(tail -n 15 "$f" | grep -oE 'V: *[0-9]+' | head -1 | sed 's/V: *//' || true)
               if [ -z "$V" ]; then continue; fi
               W=$(tail -n 15 "$f" | grep -oE 'W: *[^ ]+' | head -1 | sed 's/W: *//' || true)
@@ -310,7 +306,7 @@ jobs:
               echo "| $FNAME | $V | $W |" >> "$TMP_TABLE"
             done
 
-            OUTPUT="$TARGET_DIR/WF-STATE-INDEX.md"
+            OUTPUT="$PROJ_DIR/WF-STATE-INDEX.md"
             TIMESTAMP=$(date +%s)
             
             {
@@ -395,22 +391,11 @@ jobs:
               ) || true
             fi
 
-            P_FOUND=false
-            for P_DIR_NAME in "web-app-family" "webapp" "${SAFE_NAME}" "AI-WEB-APP-Family"; do
-              P_DIR="external/${SAFE_NAME}/docs/projects/${P_DIR_NAME}"
-              if [ -d "$P_DIR" ]; then
-                P_FOUND=true
-                for f in ${P_DIR}/*.md; do
-                  if [ -f "$f" ]; then bash .github/workflows/append_file.sh "$f" "$OUTPUT_P" || true; fi
-                done
-                break
-              fi
-            done
-            
-            if [ "$P_FOUND" = false ] && [ -d "external/${SAFE_NAME}/docs/projects" ]; then
+            # 動態尋找 P 與 WF 檔 (相容 docs/records 與 docs/projects)
+            if [ -d "external/${SAFE_NAME}/docs" ]; then
                (
                  cd "external/${SAFE_NAME}" || exit 0
-                 find docs/projects -type f \( -name "P-*.md" -o -name "WF-*.md" \) -not -path "*/.git/*" | sort | while read -r f; do
+                 find docs -type f \( -name "P-*.md" -o -name "WF-*.md" \) -not -name "WF-STATE-INDEX.md" | sort | while read -r f; do
                    bash "../../.github/workflows/append_file.sh" "$f" "../../$OUTPUT_P" || true
                  done
                ) || true
@@ -632,8 +617,8 @@ jobs:
               git config user.name "github-actions[bot]"
               git config user.email "github-actions[bot]@users.noreply.github.com"
               
-              if [ -d "docs/projects" ]; then
-                TARGET_FILES=$(find docs/projects -name "WF-STATE-INDEX.md")
+              if [ -d "docs" ]; then
+                TARGET_FILES=$(find docs -name "WF-STATE-INDEX.md")
               else
                 TARGET_FILES=""
               fi
@@ -642,7 +627,6 @@ jobs:
                 git add $TARGET_FILES
                 if ! git diff --cached --quiet; then
                   git commit -m "chore: auto-update WF-STATE-INDEX [skip ci]"
-                  # 改良版：若 rebase 衝突則放棄遠端並強制合併，防止 detached HEAD 崩潰
                   git pull --rebase origin main || {
                     echo "⚠️ Rebase 衝突，自動放棄遠端變更並強制合併"
                     git rebase --abort || true
@@ -666,12 +650,12 @@ jobs:
           git add -A
           git diff --cached --quiet || (
             git commit -m "chore: auto-build packages [skip ci]" && 
-            git pull --rebase origin main || true && 
+            (git pull --rebase origin main || true) && 
             git push
           )
 
 # ═══ EOF ═══
 # F: AI-infra/.github/workflows/setup-structure.yml
-# V: 1792708005
-# W: ai-system-20261022-009#2
+# V: 1792714000
+# W: ai-system-20261022-009#1
 # ═══ EOF ═══
