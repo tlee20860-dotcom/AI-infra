@@ -1,0 +1,121 @@
+# ============================================
+# migrate-90-to-old.yml — 一次性遷移腳本
+# 用途：將 90 倉的舊源檔遷移至 old 倉，並在 old 倉建立 meta.json 與 .github
+# ============================================
+
+name: Migrate 90 to old
+
+on:
+  workflow_dispatch: # 僅允許手動觸發
+
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout 90 (src)
+        uses: actions/checkout@v4
+        with:
+          repository: tlee20860-dotcom/AI-WEB-APP-Family
+          token: ${{ secrets.CROSS_REPO_PAT }}
+          path: src
+
+      - name: Checkout old (dst)
+        uses: actions/checkout@v4
+        with:
+          repository: tlee20860-dotcom/old-AI-WEB-APP-FAMILY
+          token: ${{ secrets.CROSS_REPO_PAT }}
+          path: dst
+
+      - name: Move old files to dst
+        run: |
+          echo "=== 移動 HTML ==="
+          for f in admin.html annual-report.html code-list.html finance-overview.html index.html input-center.html insurance.html login.html member-report.html portfolio.html register.html settings.html settlements.html; do
+            if [ -f "src/$f" ]; then mv "src/$f" "dst/$f"; fi
+          done
+
+          echo "=== 移動 CSS ==="
+          if [ -d "src/css" ]; then 
+            mkdir -p dst/css
+            mv src/css/* dst/css/
+            rmdir src/css
+          fi
+
+          echo "=== 移動 JS ==="
+          if [ -d "src/js" ]; then 
+            mkdir -p dst/js
+            mv src/js/* dst/js/
+            rmdir src/js
+          fi
+
+          echo "=== 移動 SW 與 Manifest ==="
+          [ -f "src/sw.js" ] && mv src/sw.js dst/
+          [ -f "src/manifest.json" ] && mv src/manifest.json dst/
+
+          echo "=== 移動 Docs ==="
+          if [ -d "src/docs" ]; then 
+            mkdir -p dst/docs
+            mv src/docs/* dst/docs/
+            rmdir src/docs
+          fi
+
+          echo "=== 移動後端（排除 [[path]].js 與 _api-core.js）==="
+          if [ -d "src/functions/api" ]; then
+            mkdir -p dst/functions/api
+            for f in src/functions/api/*.js; do
+              if [ -f "$f" ]; then
+                base=$(basename "$f")
+                if [ "$base" != "[[path]].js" ] && [ "$base" != "_api-core.js" ]; then
+                  mv "$f" "dst/functions/api/$base"
+                fi
+              fi
+            done
+          fi
+
+      - name: Create meta.json and .github for dst
+        run: |
+          echo "=== 建立 meta.json ==="
+          cat <<EOF > dst/meta.json
+          {
+            "domain": "W",
+            "pkg_no": "90-old",
+            "code": "old-webapp",
+            "display": "家庭 webapp 舊版"
+          }
+          EOF
+
+          echo "=== 建立 .github ==="
+          mkdir -p dst/.github/workflows
+          [ -f "src/.github/workflows/apply-patch.yml" ] && cp src/.github/workflows/apply-patch.yml dst/.github/workflows/
+          [ -f "src/.github/workflows/notify.yml" ] && cp src/.github/workflows/notify.yml dst/.github/workflows/
+          [ -f "src/.github/PATCH.md" ] && cp src/.github/PATCH.md dst/.github/
+
+      - name: Commit and Push dst
+        run: |
+          cd dst
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git diff --cached --quiet || (
+            git commit -m "chore: migrate old files from AI-WEB-APP-Family" && 
+            git push
+          )
+
+      - name: Commit and Push src
+        run: |
+          cd src
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git diff --cached --quiet || (
+            git commit -m "chore: remove old files (migrated to old-AI-WEB-APP-FAMILY)" && 
+            git push
+          )
+
+# ═══ EOF ═══
+# F: AI-infra/.github/workflows/migrate-90-to-old.yml
+# V: 1792708000
+# W: ai-system-20261022-009#1
+# ═══ EOF ═══
