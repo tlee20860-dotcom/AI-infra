@@ -11,6 +11,13 @@
     "pkg_no": "90"
   },
   {
+    "repo": "tlee20860-dotcom/old-AI-WEB-APP-FAMILY",
+    "domain": "W",
+    "code": "old-webapp",
+    "display": "家庭 webapp 舊版",
+    "pkg_no": "90-old"
+  },
+  {
     "repo": "tlee20860-dotcom/AI-OS",
     "domain": "E",
     "code": "ai-os",
