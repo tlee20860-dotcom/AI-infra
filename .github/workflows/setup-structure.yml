@@ -162,9 +162,9 @@ jobs:
       - name: "Step 1.9: 生成 I 包 (IP.md)"
         run: |
           OUTPUT="build-repo/IP.md"
-          echo "# I 包：身份與信仰" > "$OUTPUT"
+          echo "> 生成時間：$(TZ=Asia/Hong_Kong date '+%Y-%m-%d %H:%M:%S') (HKT)" > "$OUTPUT"
           echo "" >> "$OUTPUT"
-          echo "> 生成時間：$(TZ=Asia/Hong_Kong date '+%Y-%m-%d %H:%M:%S') (HKT)" >> "$OUTPUT"
+          echo "# I 包：身份與信仰" >> "$OUTPUT"
           echo "" >> "$OUTPUT"
           if [ -f "AI-kernel/docs/a-guide/I-00-identity.md" ]; then 
             bash .github/workflows/append_file.sh "AI-kernel/docs/a-guide/I-00-identity.md" "$OUTPUT" || true
@@ -173,9 +173,9 @@ jobs:
       - name: "Step 2: 生成 A 包 (AP.md)"
         run: |
           OUTPUT="build-repo/AP.md"
-          echo "# A 包：啟動引導與角色定義" > "$OUTPUT"
+          echo "> 生成時間：$(TZ=Asia/Hong_Kong date '+%Y-%m-%d %H:%M:%S') (HKT)" > "$OUTPUT"
           echo "" >> "$OUTPUT"
-          echo "> 生成時間：$(TZ=Asia/Hong_Kong date '+%Y-%m-%d %H:%M:%S') (HKT)" >> "$OUTPUT"
+          echo "# A 包：啟動引導與角色定義" >> "$OUTPUT"
           echo "" >> "$OUTPUT"
           if [ -f "AI-kernel/docs/a-guide/A-00-guide.md" ]; then 
             bash .github/workflows/append_file.sh "AI-kernel/docs/a-guide/A-00-guide.md" "$OUTPUT" || true
@@ -184,9 +184,9 @@ jobs:
       - name: "Step 3: 生成 R 包 (RP.md)"
         run: |
           OUTPUT="build-repo/RP.md"
-          echo "# R 包：規則總覽" > "$OUTPUT"
+          echo "> 生成時間：$(TZ=Asia/Hong_Kong date '+%Y-%m-%d %H:%M:%S') (HKT)" > "$OUTPUT"
           echo "" >> "$OUTPUT"
-          echo "> 生成時間：$(TZ=Asia/Hong_Kong date '+%Y-%m-%d %H:%M:%S') (HKT)" >> "$OUTPUT"
+          echo "# R 包：規則總覽" >> "$OUTPUT"
           echo "" >> "$OUTPUT"
           
           for f in R-03-terms R-00-rules R-02-patterns R-04-learning R-05-dsl-map; do
@@ -199,9 +199,9 @@ jobs:
       - name: "Step 4: 生成 U 包 (UP.md)"
         run: |
           OUTPUT="build-repo/UP.md"
-          echo "# U 包：使用者通用描述" > "$OUTPUT"
+          echo "> 生成時間：$(TZ=Asia/Hong_Kong date '+%Y-%m-%d %H:%M:%S') (HKT)" > "$OUTPUT"
           echo "" >> "$OUTPUT"
-          echo "> 生成時間：$(TZ=Asia/Hong_Kong date '+%Y-%m-%d %H:%M:%S') (HKT)" >> "$OUTPUT"
+          echo "# U 包：使用者通用描述" >> "$OUTPUT"
           echo "" >> "$OUTPUT"
           if [ -f "AI-kernel/docs/u-profile/U-00-profile.md" ]; then 
             bash .github/workflows/append_file.sh "AI-kernel/docs/u-profile/U-00-profile.md" "$OUTPUT" || true
@@ -211,9 +211,9 @@ jobs:
         run: |
           OUTPUT="build-repo/WP.md"
           if [ -d "AI-kernel/docs/skills/W" ]; then
-            echo "# W 包：Web App 領域技能" > "$OUTPUT"
+            echo "> 生成時間：$(TZ=Asia/Hong_Kong date '+%Y-%m-%d %H:%M:%S') (HKT)" > "$OUTPUT"
             echo "" >> "$OUTPUT"
-            echo "> 生成時間：$(TZ=Asia/Hong_Kong date '+%Y-%m-%d %H:%M:%S') (HKT)" >> "$OUTPUT"
+            echo "# W 包：Web App 領域技能" >> "$OUTPUT"
             echo "" >> "$OUTPUT"
             for f in AI-kernel/docs/skills/W/W-*.md; do
               if [ -f "$f" ]; then bash .github/workflows/append_file.sh "$f" "$OUTPUT" || true; fi
@@ -223,9 +223,9 @@ jobs:
       - name: "Step 6: 生成 S 包 (SP.md)"
         run: |
           OUTPUT="build-repo/SP.md"
-          echo "# AI 對話系統 - 體系狀態包" > "$OUTPUT"
+          echo "> 生成時間：$(TZ=Asia/Hong_Kong date '+%Y-%m-%d %H:%M:%S') (HKT)" > "$OUTPUT"
           echo "" >> "$OUTPUT"
-          echo "> 生成時間：$(TZ=Asia/Hong_Kong date '+%Y-%m-%d %H:%M:%S') (HKT)" >> "$OUTPUT"
+          echo "# AI 對話系統 - 體系狀態包" >> "$OUTPUT"
           echo "" >> "$OUTPUT"
           
           echo "---" >> "$OUTPUT"
@@ -259,9 +259,9 @@ jobs:
             exit 1
           fi
 
-          echo "# CHK 審查包（合規審判者用）" > "$OUTPUT"
+          echo "> 生成時間：$(TZ=Asia/Hong_Kong date '+%Y-%m-%d %H:%M:%S') (HKT)" > "$OUTPUT"
           echo "" >> "$OUTPUT"
-          echo "> 生成時間：$(TZ=Asia/Hong_Kong date '+%Y-%m-%d %H:%M:%S') (HKT)" >> "$OUTPUT"
+          echo "# CHK 審查包（合規審判者用）" >> "$OUTPUT"
           echo "" >> "$OUTPUT"
 
           for f in $SRC_LIST; do
@@ -346,20 +346,20 @@ jobs:
             OUTPUT_P="build-repo/${PKG_NO}-${SAFE_NAME}-P.md"
             OUTPUT_CODE="build-repo/${PKG_NO}-${SAFE_NAME}-All-code.md"
 
-            # 初始化標頭
-            echo "# 專案地圖包：${SAFE_NAME}" > "$OUTPUT_MAP"
+            # 初始化標頭（時間在前）
+            echo "> 生成時間：$(TZ=Asia/Hong_Kong date '+%Y-%m-%d %H:%M:%S') (HKT)" > "$OUTPUT_MAP"
             echo "" >> "$OUTPUT_MAP"
-            echo "> 生成時間：$(TZ=Asia/Hong_Kong date '+%Y-%m-%d %H:%M:%S') (HKT)" >> "$OUTPUT_MAP"
+            echo "# 專案地圖包：${SAFE_NAME}" >> "$OUTPUT_MAP"
             echo "" >> "$OUTPUT_MAP"
 
-            echo "# 專案 P 檔總集：${SAFE_NAME}" > "$OUTPUT_P"
+            echo "> 生成時間：$(TZ=Asia/Hong_Kong date '+%Y-%m-%d %H:%M:%S') (HKT)" > "$OUTPUT_P"
             echo "" >> "$OUTPUT_P"
-            echo "> 生成時間：$(TZ=Asia/Hong_Kong date '+%Y-%m-%d %H:%M:%S') (HKT)" >> "$OUTPUT_P"
+            echo "# 專案 P 檔總集：${SAFE_NAME}" >> "$OUTPUT_P"
             echo "" >> "$OUTPUT_P"
 
-            echo "# 專案全程式碼包：${SAFE_NAME}" > "$OUTPUT_CODE"
+            echo "> 生成時間：$(TZ=Asia/Hong_Kong date '+%Y-%m-%d %H:%M:%S') (HKT)" > "$OUTPUT_CODE"
             echo "" >> "$OUTPUT_CODE"
-            echo "> 生成時間：$(TZ=Asia/Hong_Kong date '+%Y-%m-%d %H:%M:%S') (HKT)" >> "$OUTPUT_CODE"
+            echo "# 專案全程式碼包：${SAFE_NAME}" >> "$OUTPUT_CODE"
             echo "" >> "$OUTPUT_CODE"
 
             # 1. 填充 Map 包 (meta.json + 檔案樹)
@@ -427,10 +427,10 @@ jobs:
       - name: "Step 9: 生成基礎設施總包 (03-INFRA.md)"
         run: |
           OUTPUT="build-repo/03-INFRA.md"
-          echo "# 基礎設施總包 (INFRA)" > "$OUTPUT"
-          echo "" >> "$OUTPUT"
-          echo "> 生成時間：$(TZ=Asia/Hong_Kong date '+%Y-%m-%d %H:%M:%S') (HKT)" >> "$OUTPUT"
+          echo "> 生成時間：$(TZ=Asia/Hong_Kong date '+%Y-%m-%d %H:%M:%S') (HKT)" > "$OUTPUT"
           echo "> ⚠️ 給 AI 的指示：本包包含體系唯一腳本與各專案呼叫器。" >> "$OUTPUT"
+          echo "" >> "$OUTPUT"
+          echo "# 基礎設施總包 (INFRA)" >> "$OUTPUT"
           echo "" >> "$OUTPUT"
 
           echo "## 🏢 體系層：AI-infra（唯一腳本）" >> "$OUTPUT"
@@ -567,10 +567,10 @@ jobs:
             exit 1
           fi
 
-          echo "# 歷史檔案包 (HISTORY)" > "$OUTPUT"
-          echo "" >> "$OUTPUT"
-          echo "> 生成時間：$(TZ=Asia/Hong_Kong date '+%Y-%m-%d %H:%M:%S') (HKT)" >> "$OUTPUT"
+          echo "> 生成時間：$(TZ=Asia/Hong_Kong date '+%Y-%m-%d %H:%M:%S') (HKT)" > "$OUTPUT"
           echo "> ⚠️ 給 AI 的指示：本包為歷史台帳與進化史，供查閱與追溯；不含會變動的 STATE-INDEX。" >> "$OUTPUT"
+          echo "" >> "$OUTPUT"
+          echo "# 歷史檔案包 (HISTORY)" >> "$OUTPUT"
           echo "" >> "$OUTPUT"
 
           for f in $SRC_FILES; do
@@ -582,9 +582,9 @@ jobs:
       - name: "Step 9.5: 生成控制台共享包 (92-Ai-github.md)"
         run: |
           OUTPUT="build-repo/92-Ai-github.md"
-          echo "# 92 包：AI 控制台原始碼" > "$OUTPUT"
+          echo "> 生成時間：$(TZ=Asia/Hong_Kong date '+%Y-%m-%d %H:%M:%S') (HKT)" > "$OUTPUT"
           echo "" >> "$OUTPUT"
-          echo "> 生成時間：$(TZ=Asia/Hong_Kong date '+%Y-%m-%d %H:%M:%S') (HKT)" >> "$OUTPUT"
+          echo "# 92 包：AI 控制台原始碼" >> "$OUTPUT"
           echo "" >> "$OUTPUT"
           
           for f in index.html manifest.json sw.js; do
@@ -664,6 +664,6 @@ jobs:
 
 # ═══ EOF ═══
 # F: AI-infra/.github/workflows/setup-structure.yml
-# V: 1792700006
-# W: ai-system-20261022-009#6
+# V: 1792705000
+# W: ai-system-20261022-009#1
 # ═══ EOF ═══
