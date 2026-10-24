@@ -1,0 +1,98 @@
+# ============================================
+# copy-backup.yml — 接收網頁指令的全量快照備份
+# 用途：手動觸發或由控制台呼叫，將指定倉庫完整複製到備份倉庫的時間戳資料夾中
+# ============================================
+
+name: Copy and Backup Repositories
+
+on:
+  workflow_dispatch:
+    inputs:
+      repos:
+        description: '要備份的倉庫名稱 (逗號分隔)'
+        required: true
+        default: 'AI-kernel,AI-General,old-AI-WA-FAMILY,AI-OS'
+      target_repo:
+        description: '備份存放的目標倉庫'
+        required: true
+        default: 'tlee20860-dotcom/AI-Backup'
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout Backup Repository
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ github.event.inputs.target_repo }}
+          token: ${{ secrets.CROSS_REPO_PAT }}
+          path: backup-repo
+
+      - name: Set Timestamp
+        id: timestamp
+        run: |
+          # 產生例如 20261024-1900 的格式
+          FOLDER_NAME="backup-$(TZ=Asia/Hong_Kong date +'%Y%m%d-%H%M')"
+          echo "FOLDER_NAME=$FOLDER_NAME" >> $GITHUB_ENV
+          echo "備份目錄: $FOLDER_NAME"
+
+      - name: Clone and Copy
+        env:
+          GH_TOKEN: ${{ secrets.CROSS_REPO_PAT }}
+          REPOS: ${{ github.event.inputs.repos }}
+        run: |
+          mkdir -p "backup-repo/${{ env.FOLDER_NAME }}"
+          
+          # 將逗號分隔的字串轉為陣列
+          IFS=',' read -ra REPO_ARRAY <<< "$REPOS"
+          
+          for REPO_NAME in "${REPO_ARRAY[@]}"; do
+            # 去除前後空白
+            REPO_NAME=$(echo "$REPO_NAME" | xargs)
+            if [ -z "$REPO_NAME" ]; then continue; fi
+            
+            echo "========================================"
+            echo "正在備份: $REPO_NAME"
+            
+            # 優先嘗試 main 分支，失敗則嘗試 master
+            git clone --depth 1 -b main "https://x-access-token:${GH_TOKEN}@github.com/tlee20860-dotcom/${REPO_NAME}.git" "temp-${REPO_NAME}" 2>/dev/null || \
+            git clone --depth 1 -b master "https://x-access-token:${GH_TOKEN}@github.com/tlee20860-dotcom/${REPO_NAME}.git" "temp-${REPO_NAME}" 2>/dev/null
+            
+            if [ -d "temp-${REPO_NAME}" ]; then
+              # 將整個目錄結構完整複製過去
+              cp -a "temp-${REPO_NAME}" "backup-repo/${{ env.FOLDER_NAME }}/${REPO_NAME}"
+              # 移除 .git 資料夾以節省備份倉庫空間
+              rm -rf "backup-repo/${{ env.FOLDER_NAME }}/${REPO_NAME}/.git"
+              echo "✅ ${REPO_NAME} 備份完成 (完整保留目錄結構)。"
+            else
+              echo "⚠️ ${REPO_NAME} clone 失敗，請確認名稱是否正確或權限不足，跳過。"
+            fi
+            
+            # 清理臨時目錄
+            rm -rf "temp-${REPO_NAME}"
+          done
+
+      - name: Commit and Push
+        run: |
+          cd backup-repo
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add .
+          
+          # 檢查是否有變更
+          if git diff --cached --quiet; then
+            echo "沒有新的變更需要備份。"
+          else
+            git commit -m "chore: backup snapshot ${{ env.FOLDER_NAME }}"
+            git push
+            echo "✅ 備份已成功推送到目標倉庫。"
+          fi
+
+# ═══ EOF ═══
+# F: AI-infra/.github/workflows/copy-backup.yml
+# V: 1792900065
+# W: ai-system-20261024-012#100
+# ═══ EOF ═══
