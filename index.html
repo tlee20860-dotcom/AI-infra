@@ -59,6 +59,10 @@
         .token-info { display: flex; flex-direction: column; }
         .token-name { font-weight: bold; font-size: 0.95rem; }
         .token-type { font-size: 0.75rem; color: var(--text-muted); }
+        
+        .checkbox-group { display: flex; flex-direction: column; gap: 10px; margin-bottom: 15px; background: #f8fafc; padding: 15px; border-radius: 8px; border: 1px solid var(--border); }
+        .checkbox-label { display: flex; align-items: center; gap: 10px; font-size: 0.95rem; cursor: pointer; }
+        .checkbox-label input[type="checkbox"] { width: 18px; height: 18px; margin: 0; accent-color: var(--primary); }
     </style>
     
     <script>
@@ -66,6 +70,7 @@
         const INFRA_REPO = 'AI-infra';
         const PACKAGES_REPO = 'AI-packages';
         const WORKFLOW_ID = 'setup-structure.yml';
+        const BACKUP_WORKFLOW_ID = 'copy-backup.yml';
 
         let pollInterval = null;
         let currentToken = '';
@@ -196,6 +201,40 @@
                     }
                 } else { updateStatus('build-status', '', '尚無打包紀錄'); document.getElementById('btn-trigger').disabled = false; }
             } catch (error) { updateStatus('build-status', 'failure', error.message); document.getElementById('btn-trigger').disabled = false; }
+        }
+
+        // === 備份 ===
+        async function triggerBackup() {
+            const btn = document.getElementById('btn-backup');
+            const targetRepo = document.getElementById('backup-target').value.trim();
+            if (!targetRepo || !targetRepo.includes('/')) return alert('請輸入正確目標 Repo (如 tlee20860-dotcom/AI-Backup)');
+
+            const checkboxes = document.querySelectorAll('input[name="backup-repo"]:checked');
+            const repos = Array.from(checkboxes).map(cb => cb.value).join(',');
+            
+            if (!repos) return alert('請至少勾選一個要備份的倉庫');
+
+            btn.disabled = true;
+            updateStatus('backup-status', 'running', '正在發送備份指令...');
+            
+            try {
+                await githubAPI(`/repos/${OWNER}/${INFRA_REPO}/actions/workflows/${BACKUP_WORKFLOW_ID}/dispatches`, {
+                    method: 'POST', 
+                    headers: { 'Content-Type': 'application/json' }, 
+                    body: JSON.stringify({ 
+                        ref: 'main',
+                        inputs: {
+                            repos: repos,
+                            target_repo: targetRepo
+                        }
+                    })
+                });
+                updateStatus('backup-status', 'success', '備份指令已發送，請稍後至 Actions 查看結果。');
+                setTimeout(() => { btn.disabled = false; }, 5000);
+            } catch (error) {
+                updateStatus('backup-status', 'failure', error.message); 
+                btn.disabled = false; 
+            }
         }
 
         // === Pages 部署 ===
@@ -349,6 +388,22 @@
         </div>
     </div>
 
+    <div class="card" id="backup-section">
+        <div class="card-title">💾 倉庫備份管理</div>
+        <div class="checkbox-group">
+            <label class="checkbox-label"><input type="checkbox" name="backup-repo" value="AI-kernel" checked> AI-kernel (體系核心)</label>
+            <label class="checkbox-label"><input type="checkbox" name="backup-repo" value="AI-General" checked> AI-General (體系紀錄)</label>
+            <label class="checkbox-label"><input type="checkbox" name="backup-repo" value="old-AI-WA-FAMILY" checked> old-AI-WA-FAMILY (專案源碼)</label>
+            <label class="checkbox-label"><input type="checkbox" name="backup-repo" value="AI-OS"> AI-OS (系統)</label>
+        </div>
+        <input type="text" id="backup-target" placeholder="目標備份倉庫 (如 tlee20860-dotcom/AI-Backup)" value="tlee20860-dotcom/AI-Backup">
+        <button class="btn-primary" id="btn-backup" onclick="triggerBackup()">🚀 開始備份</button>
+        <div class="status-box">
+            <div class="status-dot" id="backup-status-dot"></div>
+            <div id="backup-status-text">等待操作...</div>
+        </div>
+    </div>
+
     <div class="card" id="pages-section">
         <div class="card-title">🌐 Pages 部署</div>
         <input type="text" id="pages-repo" placeholder="目標 Repo (如 tlee20860-dotcom/AI-WEB-APP-Family)" value="tlee20860-dotcom/AI-WEB-APP-Family">
@@ -371,9 +426,8 @@
 </div>
 </body>
 </html>
-
-<!-- ═══ EOF ═══
+/* ═══ EOF ═══
 F: AI-infra/index.html
-V: 1792582000
-W: ai-system-20261021-005#4
-═══ -->
+V: 1792900066
+W: ai-system-20261024-012#101
+═══ */
