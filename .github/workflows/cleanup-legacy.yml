@@ -1,0 +1,79 @@
+# ============================================
+# cleanup-legacy.yml — 一次性清理腳本
+# 用途：手動觸發，清理各倉庫殘留的舊檔案與空目錄，為統一大腦鋪路
+# ============================================
+
+name: Cleanup Legacy Files
+
+on:
+  workflow_dispatch:
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Cleanup AI-General
+        env:
+          GH_TOKEN: ${{ secrets.CROSS_REPO_PAT }}
+        run: |
+          echo "=== 清理 AI-General 舊檔案 ==="
+          git clone --depth 1 "https://x-access-token:${GH_TOKEN}@github.com/tlee20860-dotcom/AI-General.git" AI-General
+          cd AI-General
+          
+          # 刪除 docs/p90/ 下非 90-P-*.md 且非 WF-*.md 的舊 P 檔 (包含 P-01, P-02 等)
+          find docs/p90 -type f -name "P-*.md" ! -name "90-P-*.md" -delete || true
+          
+          # 刪除舊的 STATE-INDEX
+          git rm --ignore-unmatch docs/records/STATE-INDEX.md || true
+          
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git diff --cached --quiet || (git commit -m "chore: cleanup legacy P files and STATE-INDEX [skip ci]" && git push)
+          cd ..
+
+      - name: Cleanup AI-WEB-APP-Family
+        env:
+          GH_TOKEN: ${{ secrets.CROSS_REPO_PAT }}
+        run: |
+          echo "=== 清理 AI-WEB-APP-Family 舊紀錄 ==="
+          git clone --depth 1 "https://x-access-token:${GH_TOKEN}@github.com/tlee20860-dotcom/AI-WEB-APP-Family.git" AI-WEB-APP-Family
+          cd AI-WEB-APP-Family
+          
+          # 強制移除專案紀錄目錄 (落實專案倉庫純化)
+          git rm -r --ignore-unmatch docs/records || true
+          git rm -r --ignore-unmatch docs/projects || true
+          
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git diff --cached --quiet || (git commit -m "chore: cleanup legacy records and projects [skip ci]" && git push)
+          cd ..
+
+      - name: Cleanup old-AI-WA-FAMILY
+        env:
+          GH_TOKEN: ${{ secrets.CROSS_REPO_PAT }}
+        run: |
+          echo "=== 清理 old-AI-WA-FAMILY 舊紀錄 ==="
+          git clone --depth 1 "https://x-access-token:${GH_TOKEN}@github.com/tlee20860-dotcom/old-AI-WA-FAMILY.git" old-AI-WA-FAMILY
+          cd old-AI-WA-FAMILY
+          
+          git rm -r --ignore-unmatch docs/records || true
+          git rm -r --ignore-unmatch docs/projects || true
+          
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git diff --cached --quiet || (git commit -m "chore: cleanup legacy records and projects [skip ci]" && git push)
+          cd ..
+
+          echo "🎉 所有源檔倉庫清理完成。"
+
+# ═══ EOF ═══
+# F: AI-infra/.github/workflows/cleanup-legacy.yml
+# V: 1792900081
+# W: ai-system-20261024-012#132
+# ═══ EOF ═══
