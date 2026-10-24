@@ -135,32 +135,10 @@ jobs:
           echo "---" >> "$OUTPUT"
           echo "" >> "$OUTPUT"
 
-          # 1. 打包體系紀錄
+          # 打包體系紀錄
           for f in AI-General/docs/records/SYSTEM-HANDOFF.md AI-General/docs/records/PROGRESS.md AI-General/docs/records/SYSTEM-CONCLUSION.md AI-General/docs/records/SYSTEM-REJECTED.md AI-General/docs/records/SYSTEM-DEBT.md; do
             if [ -f "$f" ]; then bash .github/workflows/append_file.sh "$f" "$OUTPUT" || true; fi
           done
-
-          # 2. 生成體系索引並附加在 SP-Sys 尾端
-          echo "" >> "$OUTPUT"
-          echo "## 體系檔案索引" >> "$OUTPUT"
-          echo "| Repo | 檔案 | Version | Writer |" >> "$OUTPUT"
-          echo "|---|---|---|---|" >> "$OUTPUT"
-          TMP_TABLE="/tmp/state-index-sys.txt"
-          > "$TMP_TABLE"
-          for REPO_DIR in "AI-General/docs/records" "AI-kernel/docs"; do
-            if [ -d "$REPO_DIR" ]; then
-              find "$REPO_DIR" -type f -name "*.md" -not -path "*/.git/*" | while read -r f; do
-                V=$(tail -n 15 "$f" | grep -oE 'V: *[0-9]+' | head -1 | sed 's/V: *//' || true)
-                if [ -z "$V" ]; then continue; fi
-                W=$(tail -n 15 "$f" | grep -oE 'W: *[^ ]+' | head -1 | sed 's/W: *//' || true)
-                REPO_NAME="AI-General"
-                CLEAN_F=${f#AI-General/}
-                if [[ "$f" == AI-kernel/* ]]; then REPO_NAME="AI-kernel"; CLEAN_F=${f#AI-kernel/}; fi
-                echo "| $REPO_NAME | $CLEAN_F | $V | $W |" >> "$TMP_TABLE"
-              done
-            fi
-          done || true
-          if [ -s "$TMP_TABLE" ]; then sort -t'|' -k3 -nr "$TMP_TABLE" >> "$OUTPUT"; fi
 
       - name: "Step 1.9: 生成 I 包 (00-IP.md)"
         run: |
@@ -240,7 +218,7 @@ jobs:
             bash .github/workflows/append_file.sh "$SRC_DIR/$f" "$OUTPUT" || { rm -f "$OUTPUT"; exit 1; }
           done
 
-      - name: "Step 7: 生成專案狀態與索引 ({pkg_no}-SP.md)"
+      - name: "Step 7: 生成專案狀態 ({pkg_no}-SP.md)"
         run: |
           jq -c '.[]' /tmp/projects.json | while read -r row; do
             REPO=$(echo "$row" | jq -r '.repo')
@@ -262,22 +240,6 @@ jobs:
               for f in "$PROJ_DIR"/WF-*.md "$PROJ_DIR"/P-*.md; do
                 if [ -f "$f" ]; then bash .github/workflows/append_file.sh "$f" "$OUTPUT" || true; fi
               done
-              
-              # 生成專案索引
-              echo "" >> "$OUTPUT"
-              echo "## 專案檔案索引" >> "$OUTPUT"
-              echo "| 檔案 | Version | Writer |" >> "$OUTPUT"
-              echo "|---|---|---|" >> "$OUTPUT"
-              TMP_TABLE="/tmp/state-index-${PKG_NO}.txt"
-              > "$TMP_TABLE"
-              find "$PROJ_DIR" -type f -name "*.md" | sort | while read -r f; do
-                V=$(tail -n 15 "$f" | grep -oE 'V: *[0-9]+' | head -1 | sed 's/V: *//' || true)
-                if [ -z "$V" ]; then continue; fi
-                W=$(tail -n 15 "$f" | grep -oE 'W: *[^ ]+' | head -1 | sed 's/W: *//' || true)
-                FNAME=$(basename "$f")
-                echo "| $FNAME | $V | $W |" >> "$TMP_TABLE"
-              done
-              if [ -s "$TMP_TABLE" ]; then sort -t'|' -k2 -nr "$TMP_TABLE" >> "$OUTPUT"; fi
             fi
           done
 
@@ -384,6 +346,51 @@ jobs:
             bash .github/workflows/append_file.sh "$f" "$OUTPUT" || { rm -f "$OUTPUT"; exit 1; }
           done
 
+      - name: "Step 9.4: 生成全庫總索引 (25-INDEX.md)"
+        run: |
+          OUTPUT="build-repo/25-INDEX.md"
+          echo "> 生成時間：$(TZ=Asia/Hong_Kong date '+%Y-%m-%d %H:%M:%S') (HKT)" > "$OUTPUT"
+          echo "" >> "$OUTPUT"
+          echo "# 全庫檔案總索引 (GLOBAL INDEX)" >> "$OUTPUT"
+          echo "" >> "$OUTPUT"
+          echo "本檔包含所有體系與專案的實體檔案清單，供 AI 掌握全局檔案分佈。" >> "$OUTPUT"
+          echo "" >> "$OUTPUT"
+
+          # 1. 體系索引
+          echo "## 🏢 體系源檔 (AI-kernel / AI-General)" >> "$OUTPUT"
+          echo "| Repo | 檔案 | Version | Writer |" >> "$OUTPUT"
+          echo "|---|---|---|---|" >> "$OUTPUT"
+          TMP_TABLE="/tmp/state-index-sys.txt"
+          > "$TMP_TABLE"
+          for REPO_DIR in "AI-General/docs" "AI-kernel/docs"; do
+            if [ -d "$REPO_DIR" ]; then
+              find "$REPO_DIR" -type f -name "*.md" -not -path "*/.git/*" | while read -r f; do
+                V=$(tail -n 15 "$f" | grep -oE 'V: *[0-9]+' | head -1 | sed 's/V: *//' || true)
+                W=$(tail -n 15 "$f" | grep -oE 'W: *[^ ]+' | head -1 | sed 's/W: *//' || true)
+                REPO_NAME="AI-General"
+                CLEAN_F=${f#AI-General/}
+                if [[ "$f" == AI-kernel/* ]]; then REPO_NAME="AI-kernel"; CLEAN_F=${f#AI-kernel/}; fi
+                if [ -n "$V" ]; then echo "| $REPO_NAME | $CLEAN_F | $V | $W |" >> "$TMP_TABLE"; else echo "| $REPO_NAME | $CLEAN_F | - | - |" >> "$TMP_TABLE"; fi
+              done
+            fi
+          done || true
+          if [ -s "$TMP_TABLE" ]; then sort -t'|' -k1,1 -k2 "$TMP_TABLE" >> "$OUTPUT"; fi
+          echo "" >> "$OUTPUT"
+
+          # 2. 專案索引
+          echo "## 📦 專案源碼檔案樹 (external)" >> "$OUTPUT"
+          echo "| 專案倉庫 | 檔案路徑 |" >> "$OUTPUT"
+          echo "|---|---|" >> "$OUTPUT"
+          
+          if [ -d "external" ]; then
+            find external -type f -not -path "*/.git/*" -not -path "*/node_modules/*" | sort | while read -r f; do
+              CLEAN_F=${f#external/}
+              REPO_NAME=$(echo "$CLEAN_F" | awk -F/ '{print $1}')
+              FILE_PATH=$(echo "$CLEAN_F" | cut -d'/' -f2-)
+              echo "| $REPO_NAME | $FILE_PATH |" >> "$OUTPUT"
+            done
+          fi
+
       - name: "Step 9.5: 生成控制台共享包 (22-Console.md)"
         run: |
           OUTPUT="build-repo/22-Console.md"
@@ -421,6 +428,6 @@ jobs:
 
 # ═══ EOF ═══
 # F: AI-infra/.github/workflows/setup-structure.yml
-# V: 1792900073
-# W: ai-system-20261024-012#115
+# V: 1792900080
+# W: ai-system-20261024-012#130
 # ═══ EOF ═══
