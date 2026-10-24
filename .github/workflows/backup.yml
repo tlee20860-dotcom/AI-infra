@@ -1,0 +1,68 @@
+# ============================================
+# backup.yml — 源檔自動備份腳本
+# 用途：每日定時為所有源檔倉庫打上 Git Tag，防止手動貼檔覆蓋導致資料遺失
+# ============================================
+
+name: Daily Source Backup
+
+on:
+  schedule:
+    # 每天 UTC 22:00 (即香港時間 HKT 早上 06:00) 執行
+    - cron: '0 22 * * *'
+  # 允許手動觸發，方便測試
+  workflow_dispatch:
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Create Daily Backup Tags
+        env:
+          GH_TOKEN: ${{ secrets.CROSS_REPO_PAT }}
+        run: |
+          # 建立 Tag 名稱，例如 backup-20261024
+          TAG_NAME="backup-$(date +'%Y%m%d')"
+          echo "Preparing to create tag: $TAG_NAME"
+
+          # 獲取所有帶有 ai-systems 標籤的倉庫，並排除生成物倉庫 AI-packages
+          REPOS=$(gh search repos --owner tlee20860-dotcom --topic ai-systems --json name,owner --jq '.[] | select(.name != "AI-packages") | .owner.login + "/" + .name')
+          
+          # 手動加入不在 topic 中但需要備份的舊版倉庫
+          OLD_REPO="tlee20860-dotcom/old-AI-WA-FAMILY"
+          
+          for REPO in $REPOS $OLD_REPO; do
+            echo "----------------------------------------"
+            echo "Processing repository: $REPO"
+            
+            # 取得該倉庫的預設分支 (通常是 main 或 master)
+            DEFAULT_BRANCH=$(gh repo view "$REPO" --json defaultBranchRef --jq '.defaultBranchRef.name')
+            
+            # 取得該分支最新 Commit 的 SHA
+            SHA=$(gh api "repos/$REPO/commits/$DEFAULT_BRANCH" --jq '.sha')
+            
+            if [ -z "$SHA" ]; then
+              echo "⚠️ 無法取得 $REPO 的 Commit SHA，跳過。"
+              continue
+            fi
+
+            # 檢查該 Tag 是否已存在
+            if gh api "repos/$REPO/git/ref/tags/$TAG_NAME" >/dev/null 2>&1; then
+              echo "⏭️ Tag $TAG_NAME 已存在於 $REPO，跳過。"
+            else
+              # 建立 Tag
+              gh api -X POST "repos/$REPO/git/refs" -f ref="refs/tags/$TAG_NAME" -f sha="$SHA" > /dev/null
+              echo "✅ 成功為 $REPO 建立 Tag $TAG_NAME (基於 $DEFAULT_BRANCH: $SHA)。"
+            fi
+          done
+
+          echo "========================================"
+          echo "🎉 所有源檔倉庫備份完成。"
+
+# ═══ EOF ═══
+# F: AI-infra/.github/workflows/backup.yml
+# V: 1792900050
+# W: ai-system-20261024-012#69
+# ═══ EOF ═══
