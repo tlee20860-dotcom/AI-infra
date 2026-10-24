@@ -344,7 +344,7 @@ jobs:
             fi
           done
 
-          for wf in setup-structure.yml migrate.yml append_file.sh backup.yml; do
+          for wf in setup-structure.yml migrate.yml append_file.sh backup.yml copy-backup.yml; do
             if [ -f ".github/workflows/$wf" ]; then 
               echo "### 📄 檔案：$wf (infra)" >> "$OUTPUT"
               bash .github/workflows/append_file.sh ".github/workflows/$wf" "$OUTPUT" || true
@@ -421,6 +421,6 @@ jobs:
 
 # ═══ EOF ═══
 # F: AI-infra/.github/workflows/setup-structure.yml
-# V: 1792900049
-# W: ai-system-20261024-012#68
+# V: 1792900070
+# W: ai-system-20261024-012#107
 # ═══ EOF ═══
