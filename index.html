@@ -11,74 +11,62 @@
             --primary: #6366f1; --primary-hover: #4f46e5; --bg: #f8fafc;
             --card-bg: #ffffff; --text: #1e293b; --text-muted: #64748b;
             --success: #10b981; --danger: #ef4444; --border: #e2e8f0;
+            --warning: #f59e0b;
         }
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; }
-        body { background-color: var(--bg); color: var(--text); padding: 20px; line-height: 1.5; -webkit-tap-highlight-color: transparent; }
+        body { background-color: var(--bg); color: var(--text); padding: 20px; line-height: 1.5; -webkit-tap-highlight-color: transparent; padding-bottom: 80px; }
         .container { max-width: 600px; margin: 0 auto; }
-        h1 { font-size: 1.5rem; margin-bottom: 5px; text-align: center; color: var(--text); }
-        .subtitle { text-align: center; color: var(--text-muted); font-size: 0.9rem; margin-bottom: 20px; }
-        .card { background: var(--card-bg); border-radius: 12px; padding: 20px; margin-bottom: 20px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); border: 1px solid var(--border); }
-        .card-title { font-size: 1.1rem; font-weight: bold; margin-bottom: 15px; display: flex; align-items: center; gap: 8px; }
-        input[type="password"], input[type="text"], textarea, select { width: 100%; padding: 12px; border: 1px solid var(--border); border-radius: 8px; font-size: 1rem; margin-bottom: 10px; transition: border-color 0.2s; font-family: inherit; }
-        textarea { resize: vertical; min-height: 100px; }
-        input:focus, textarea:focus, select:focus { outline: none; border-color: var(--primary); }
-        button { width: 100%; padding: 14px; border: none; border-radius: 8px; font-size: 1rem; font-weight: bold; cursor: pointer; transition: background-color 0.2s, opacity 0.2s; display: flex; justify-content: center; align-items: center; gap: 8px; }
-        button:active { transform: scale(0.98); }
+        
+        /* Sticky Header */
+        .sticky-header { position: sticky; top: 0; background: rgba(248, 250, 252, 0.95); backdrop-filter: blur(8px); z-index: 100; padding: 10px 0; margin-bottom: 20px; border-bottom: 1px solid var(--border); }
+        .sticky-header .card { margin-bottom: 0; display: flex; align-items: center; justify-content: space-between; padding: 10px 15px; }
+        
+        h1 { font-size: 1.2rem; margin-bottom: 5px; color: var(--text); }
+        .subtitle { color: var(--text-muted); font-size: 0.8rem; }
+        .card { background: var(--card-bg); border-radius: 12px; padding: 15px; margin-bottom: 15px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); border: 1px solid var(--border); }
+        .card-title { font-size: 1rem; font-weight: bold; margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }
+        
+        input[type="text"], input[type="password"], textarea { width: 100%; padding: 12px; border: 1px solid var(--border); border-radius: 8px; font-size: 0.95rem; margin-bottom: 10px; font-family: inherit; }
+        textarea { resize: vertical; min-height: 120px; font-family: monospace; }
+        button { width: 100%; padding: 12px; border: none; border-radius: 8px; font-size: 1rem; font-weight: bold; cursor: pointer; transition: background-color 0.2s, opacity 0.2s; display: flex; justify-content: center; align-items: center; gap: 8px; }
         button:disabled { opacity: 0.6; cursor: not-allowed; }
         .btn-primary { background-color: var(--primary); color: white; }
-        .btn-primary:hover:not(:disabled) { background-color: var(--primary-hover); }
-        .btn-outline { background-color: transparent; border: 1px solid var(--border); color: var(--text); margin-top: 10px; }
-        .btn-small { width: auto; padding: 8px 12px; font-size: 0.85rem; border-radius: 6px; }
         .btn-success { background-color: var(--success); color: white; }
         .btn-danger { background-color: var(--danger); color: white; }
+        .btn-small { width: auto; padding: 6px 10px; font-size: 0.8rem; border-radius: 6px; }
         
-        .status-box { padding: 15px; border-radius: 8px; background-color: #f1f5f9; margin-top: 15px; font-size: 0.9rem; display: flex; align-items: center; gap: 10px; }
+        .status-box { padding: 10px; border-radius: 8px; background-color: #f1f5f9; margin-top: 10px; font-size: 0.85rem; display: flex; align-items: center; gap: 10px; }
         .status-dot { width: 10px; height: 10px; border-radius: 50%; background-color: var(--text-muted); flex-shrink: 0; }
-        .status-dot.running { background-color: #f59e0b; animation: pulse 1.5s infinite; }
+        .status-dot.running { background-color: var(--warning); animation: pulse 1.5s infinite; }
         .status-dot.success { background-color: var(--success); }
         .status-dot.failure { background-color: var(--danger); }
         @keyframes pulse { 0% { transform: scale(0.95); opacity: 0.7; } 50% { transform: scale(1.1); opacity: 1; } 100% { transform: scale(0.95); opacity: 0.7; } }
 
-        /* 分類與檔案列表樣式 */
-        .file-category { margin-bottom: 15px; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; background: #fff; }
-        .file-category summary { padding: 12px 15px; background-color: #f8fafc; font-weight: bold; cursor: pointer; list-style: none; display: flex; justify-content: space-between; align-items: center; user-select: none; font-size: 0.95rem; border-bottom: 1px solid var(--border); }
-        .file-category summary::-webkit-details-marker { display: none; }
-        .file-category summary::after { content: '▼'; font-size: 0.8rem; color: var(--text-muted); transition: transform 0.2s; }
-        .file-category[open] summary::after { transform: rotate(180deg); }
-        .file-category-content { padding: 10px; display: flex; flex-direction: column; gap: 10px; }
+        .error-panel, .success-panel { display: none; padding: 15px; border-radius: 8px; margin-bottom: 15px; }
+        .error-panel { background-color: #fef2f2; border: 1px solid #fecaca; color: #991b1b; }
+        .success-panel { background-color: #ecfdf5; border: 1px solid #a7f3d0; color: #065f46; }
+        .error-list { font-size: 0.85rem; margin-bottom: 10px; white-space: pre-wrap; font-family: monospace; }
         
-        .file-item { display: flex; flex-direction: column; gap: 8px; padding: 12px; border: 1px solid var(--border); border-radius: 8px; background-color: var(--card-bg); }
-        .file-header { display: flex; justify-content: space-between; align-items: center; }
-        .file-name { font-weight: bold; color: var(--primary); font-size: 0.95rem; word-break: break-all; }
-        .file-time { font-size: 0.8rem; color: var(--text-muted); flex-shrink: 0; margin-left: 10px; }
-        .file-actions { display: flex; gap: 8px; flex-wrap: wrap; }
-        .file-actions button { flex: 1; margin-top: 0; padding: 8px; font-size: 0.85rem; }
-
-        .token-item { display: flex; justify-content: space-between; align-items: center; padding: 10px; border-bottom: 1px solid var(--border); background: #fff; }
-        .token-item:last-child { border-bottom: none; }
-        .token-info { display: flex; flex-direction: column; }
-        .token-name { font-weight: bold; font-size: 0.95rem; }
-        .token-type { font-size: 0.75rem; color: var(--text-muted); }
-        
-        .checkbox-group { display: flex; flex-direction: column; gap: 10px; margin-bottom: 15px; background: #f8fafc; padding: 15px; border-radius: 8px; border: 1px solid var(--border); }
-        .checkbox-label { display: flex; align-items: center; gap: 10px; font-size: 0.95rem; cursor: pointer; }
-        .checkbox-label input[type="checkbox"] { width: 18px; height: 18px; margin: 0; accent-color: var(--primary); }
+        details { margin-bottom: 15px; }
+        summary { cursor: pointer; font-weight: bold; padding: 10px; background: #f8fafc; border-radius: 8px; border: 1px solid var(--border); outline: none; }
     </style>
     
     <script>
         const OWNER = 'tlee20860-dotcom';
         const INFRA_REPO = 'AI-infra';
-        const PACKAGES_REPO = 'AI-packages';
         const WORKFLOW_ID = 'setup-structure.yml';
-        const BACKUP_WORKFLOW_ID = 'copy-backup.yml';
-
-        let pollInterval = null;
+        
         let currentToken = '';
         let tokenList = [];
         let triggerTime = 0;
+        let pollInterval = null;
+
+        // 簡易繁簡與禁用詞對照表 (需與後端 validate-config.json 對齊)
+        const FORBIDDEN_WORDS = ["略", "保留原樣", "同上", "與前相同", "內容不變", "（省略）", "（程式碼略）", "...", "…", "參考前文", "其餘同前"];
+        const SIMPLIFIED_CHARS = ["体", "实", "发", "档", "权", "检", "查", "网", "页", "库", "选", "项", "标", "准", "记", "录", "历", "史", "进", "化", "设", "计", "对", "应", "当", "总", "结", "归", "纳", "务", "动", "态", "统", "过", "将", "来", "并", "且"];
 
         window.onload = () => {
-            loadTokens(); checkBuildStatus(); fetchFiles();
+            loadTokens(); checkBuildStatus();
             if ('serviceWorker' in navigator) {
                 navigator.serviceWorker.register('sw.js').catch(err => console.log('SW fail:', err));
             }
@@ -101,46 +89,37 @@
         function saveTokensToLocal() { localStorage.setItem('gh_token_list', JSON.stringify(tokenList)); }
         function addToken() {
             const name = document.getElementById('new-token-name').value.trim();
-            const type = document.getElementById('new-token-type').value;
             const tokenStr = document.getElementById('new-token-value').value.trim();
             if (!name || !tokenStr) return alert('請填寫名稱與 Token');
-            const newToken = { id: Date.now().toString(), name, type, token: tokenStr, isActive: tokenList.length === 0 };
+            const newToken = { id: Date.now().toString(), name, token: tokenStr, isActive: tokenList.length === 0 };
             tokenList.push(newToken); saveTokensToLocal();
             if (newToken.isActive) currentToken = newToken.token;
             document.getElementById('new-token-name').value = ''; document.getElementById('new-token-value').value = '';
             renderTokens();
         }
-        function deleteToken(id) {
-            if (!confirm('確定要刪除這組 Token 嗎？')) return;
-            const tokenToDelete = tokenList.find(t => t.id === id);
-            tokenList = tokenList.filter(t => t.id !== id);
-            if (tokenToDelete && tokenToDelete.isActive && tokenList.length > 0) { tokenList[0].isActive = true; currentToken = tokenList[0].token; }
-            else if (tokenList.length === 0) currentToken = '';
-            saveTokensToLocal(); renderTokens();
-        }
         function setActive(id) {
             tokenList.forEach(t => { t.isActive = (t.id === id); if (t.isActive) currentToken = t.token; });
             saveTokensToLocal(); renderTokens();
         }
+        function deleteToken(id) {
+            if (!confirm('確定刪除？')) return;
+            tokenList = tokenList.filter(t => t.id !== id);
+            if (tokenList.length > 0) { setActive(tokenList[0].id); } else { currentToken = ''; saveTokensToLocal(); renderTokens(); }
+        }
         function copyToken(tokenStr) { navigator.clipboard.writeText(tokenStr).then(() => alert('已複製 Token')); }
         function renderTokens() {
             const listEl = document.getElementById('token-list');
-            if (tokenList.length === 0) {
-                listEl.innerHTML = '<div style="text-align:center; color:var(--text-muted); font-size:0.9rem; padding: 10px;">目前沒有 Token，請於上方新增</div>'; return;
-            }
-            listEl.innerHTML = '';
+            listEl.innerHTML = tokenList.length === 0 ? '<div style="text-align:center;color:#999;font-size:0.8rem;">無 Token</div>' : '';
             tokenList.forEach(t => {
-                const item = document.createElement('div'); item.className = 'token-item';
+                const item = document.createElement('div');
+                item.style = "display:flex; justify-content:space-between; align-items:center; padding:8px 0; border-bottom:1px solid #eee;";
                 const masked = t.token.substring(0, 4) + '****' + t.token.substring(t.token.length - 4);
                 item.innerHTML = `
-                    <div class="token-info">
-                        <span class="token-name">${t.name} ${t.isActive ? '✅' : ''}</span>
-                        <span class="token-type">${t.type} (${masked})</span>
-                    </div>
+                    <div><span style="font-weight:bold; font-size:0.9rem;">${t.name} ${t.isActive ? '✅' : ''}</span><br><span style="font-size:0.75rem;color:#666;">${masked}</span></div>
                     <div style="display:flex; gap:5px;">
-                        ${!t.isActive && t.type === 'GitHub' ? `<button class="btn-primary btn-small" onclick="setActive('${t.id}')" style="padding:6px 10px; font-size:0.75rem;">啟用</button>` : ''}
-                        <button class="btn-outline btn-small" onclick="copyToken('${t.token}')" style="padding:6px 10px; font-size:0.75rem; margin-top:0;">複製</button>
-                        <button class="btn-danger btn-small" onclick="deleteToken('${t.id}')" style="padding:6px 10px; font-size:0.75rem;">刪除</button>
+                        ${!t.isActive ? `<button class="btn-primary btn-small" onclick="setActive('${t.id}')">啟用</button>` : ''}
+                        <button class="btn-primary btn-small" style="background:#64748b;" onclick="copyToken('${t.token}')">複製</button>
+                        <button class="btn-danger btn-small" onclick="deleteToken('${t.id}')">刪除</button>
                     </div>`;
                 listEl.appendChild(item);
             });
@@ -149,13 +128,19 @@
         // === GitHub API ===
         async function githubAPI(url, options = {}) {
             if (!currentToken) throw new Error("未啟用 GitHub Token");
-            const headers = { 'Accept': 'application/vnd.github.v3+json', 'Authorization': `token ${currentToken}`, ...options.headers };
-            const res = await fetch(`https://api.github.com${url}`, { ...options, headers });
+            const headers = { 
+                'Accept': 'application/vnd.github.v3+json', 
+                'Authorization': `token ${currentToken}`, 
+                'Cache-Control': 'no-cache',
+                ...options.headers 
+            };
+            const res = await fetch(`https://api.github.com${url}?t=${Date.now()}`, { ...options, headers });
             if (!res.ok) {
                 let errMsg = `API 錯誤: ${res.status}`;
                 try { const errData = await res.json(); if (errData.message) errMsg += ` - ${errData.message}`; } catch(e) {}
                 if (res.status === 401) throw new Error('Token 無效或過期');
-                if (res.status === 404) throw new Error('找不到資源，請確認 Repo 名稱或權限');
+                if (res.status === 404) throw new Error('找不到資源（可能路徑錯誤或無權限）');
+                if (res.status === 409) throw new Error('檔案衝突，請重試');
                 throw new Error(errMsg);
             }
             return res.status === 204 ? null : await res.json();
@@ -170,10 +155,10 @@
                 await githubAPI(`/repos/${OWNER}/${INFRA_REPO}/actions/workflows/${WORKFLOW_ID}/dispatches`, {
                     method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ref: 'main' })
                 });
-                updateStatus('build-status', 'running', '指令已發送，等待 GitHub 建立新任務...');
+                updateStatus('build-status', 'running', '指令已發送，等待排隊...');
                 if (pollInterval) clearInterval(pollInterval);
                 setTimeout(checkBuildStatus, 3000);
-                pollInterval = setInterval(checkBuildStatus, 5000);
+                pollInterval = setInterval(checkBuildStatus, 8000);
             } catch (error) { updateStatus('build-status', 'failure', error.message); btn.disabled = false; }
         }
 
@@ -183,74 +168,24 @@
                 if (data.workflow_runs && data.workflow_runs.length > 0) {
                     const run = data.workflow_runs[0];
                     const runTime = new Date(run.created_at).getTime();
-                    const createdAt = new Date(run.created_at).toLocaleString('zh-TW', { timeZone: 'Asia/Taipei' });
+                    const createdAt = new Date(run.created_at).toLocaleString('zh-TW', { timeZone: 'Asia/Hong_Kong' });
                     
                     if (triggerTime > 0 && runTime < triggerTime - 10000) {
-                        updateStatus('build-status', 'running', '指令已發送，等待 GitHub 排隊建立新任務...'); return;
+                        updateStatus('build-status', 'running', '排隊建立任務中...'); return;
                     }
                     if (run.status === 'in_progress' || run.status === 'queued') {
                         updateStatus('build-status', 'running', `打包進行中... (始於 ${createdAt})`);
                     } else if (run.conclusion === 'success') {
                         updateStatus('build-status', 'success', `上次打包成功 (${createdAt})`);
                         document.getElementById('btn-trigger').disabled = false; triggerTime = 0;
-                        if (pollInterval) { clearInterval(pollInterval); pollInterval = null; fetchFiles(); }
+                        if (pollInterval) { clearInterval(pollInterval); pollInterval = null; }
                     } else {
                         updateStatus('build-status', 'failure', `上次打包失敗 (${createdAt})`);
                         document.getElementById('btn-trigger').disabled = false; triggerTime = 0;
                         if (pollInterval) { clearInterval(pollInterval); pollInterval = null; }
                     }
-                } else { updateStatus('build-status', '', '尚無打包紀錄'); document.getElementById('btn-trigger').disabled = false; }
+                } else { updateStatus('build-status', '', '尚無紀錄'); document.getElementById('btn-trigger').disabled = false; }
             } catch (error) { updateStatus('build-status', 'failure', error.message); document.getElementById('btn-trigger').disabled = false; }
-        }
-
-        // === 備份 ===
-        async function triggerBackup() {
-            const btn = document.getElementById('btn-backup');
-            const targetRepo = document.getElementById('backup-target').value.trim();
-            if (!targetRepo || !targetRepo.includes('/')) return alert('請輸入正確目標 Repo (如 tlee20860-dotcom/AI-Backup)');
-
-            const checkboxes = document.querySelectorAll('input[name="backup-repo"]:checked');
-            const repos = Array.from(checkboxes).map(cb => cb.value).join(',');
-            
-            if (!repos) return alert('請至少勾選一個要備份的倉庫');
-
-            btn.disabled = true;
-            updateStatus('backup-status', 'running', '正在發送備份指令...');
-            
-            try {
-                await githubAPI(`/repos/${OWNER}/${INFRA_REPO}/actions/workflows/${BACKUP_WORKFLOW_ID}/dispatches`, {
-                    method: 'POST', 
-                    headers: { 'Content-Type': 'application/json' }, 
-                    body: JSON.stringify({ 
-                        ref: 'main',
-                        inputs: {
-                            repos: repos,
-                            target_repo: targetRepo
-                        }
-                    })
-                });
-                updateStatus('backup-status', 'success', '備份指令已發送，請稍後至 Actions 查看結果。');
-                setTimeout(() => { btn.disabled = false; }, 5000);
-            } catch (error) {
-                updateStatus('backup-status', 'failure', error.message); 
-                btn.disabled = false; 
-            }
-        }
-
-        // === Pages 部署 ===
-        async function triggerPagesDeploy() {
-            const btn = document.getElementById('btn-deploy-pages');
-            const targetRepo = document.getElementById('pages-repo').value.trim();
-            const branch = document.getElementById('pages-branch').value.trim() || 'main';
-            if (!targetRepo || !targetRepo.includes('/')) return alert('請輸入正確目標 Repo');
-            btn.disabled = true; updateStatus('pages-status', 'running', '正在發送 Pages 部署指令...');
-            try {
-                await githubAPI(`/repos/${targetRepo}/actions/workflows/pages.yml/dispatches`, {
-                    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ref: branch })
-                });
-                updateStatus('pages-status', 'success', '指令已發送，請至 Actions 查看進度');
-                setTimeout(() => { btn.disabled = false; }, 3000);
-            } catch (error) { updateStatus('pages-status', 'failure', error.message); btn.disabled = false; }
         }
 
         function updateStatus(prefix, status, msg) {
@@ -258,176 +193,267 @@
             if(dot) dot.className = `status-dot ${status}`; if(text) text.textContent = msg;
         }
 
-        // === 共享包獲取 (去重與分類) ===
-        let currentFilesData = []; 
+        // === 體檢與發布 ===
+        function processFile() {
+            const content = document.getElementById('file-input').value;
+            const errorPanel = document.getElementById('error-panel');
+            const successPanel = document.getElementById('success-panel');
+            const inputArea = document.getElementById('input-area');
+            
+            errorPanel.style.display = 'none';
+            successPanel.style.display = 'none';
 
-        // 根據全數字前綴進行分類
-        function getCategoryInfo(filename) {
-            if (/^0[0-4]-/.test(filename)) return { key: 'core', title: '🧠 核心與領域 (00-04)', order: 1 };
-            if (/^1\d-/.test(filename)) return { key: 'domain', title: '🧩 領域技能包 (10-19)', order: 2 };
-            if (/^2\d-/.test(filename)) return { key: 'record', title: '⚙️ 體系紀錄與工具 (20-29)', order: 3 };
-            if (/^9\d-/.test(filename)) return { key: 'project', title: '📦 專案合併包 (90+)', order: 4 };
-            return { key: 'other', title: '📁 其他檔案', order: 5 };
+            if (!content.trim()) return alert('請先貼上內容');
+
+            let errors = [];
+
+            // 1. 擷取 F: 路徑
+            const pathMatch = content.match(/(?:F:|"F":)\s*"?([^\s"\n]+)"?/);
+            if (!pathMatch) {
+                errors.push("找不到 F: 路徑標記。請確認 AI 是否漏寫 EOF。");
+            } else {
+                const fullPath = pathMatch[1];
+                const pathParts = fullPath.split('/');
+                if (pathParts.length < 2) {
+                    errors.push(`路徑格式錯誤：${fullPath}。必須包含倉庫名。`);
+                } else {
+                    const repo = pathParts[0];
+                    const filePath = pathParts.slice(1).join('/');
+                    if (!['AI-kernel', 'AI-General', 'AI-WA-UPWO', 'AI-WEB-APP-Family', 'AI-OS'].includes(repo)) { // 簡易白名單
+                        errors.push(`未知的倉庫目標：${repo}。請確認是否正確。`);
+                    }
+                    document.getElementById('target-path-display').textContent = `目標：${repo} / ${filePath}`;
+                    document.getElementById('target-repo').value = repo;
+                    document.getElementById('target-file-path').value = filePath;
+                }
+            }
+
+            // 2. 簡體字與禁用詞掃描
+            // 移除程式碼區塊避免誤判
+            const cleanContent = content.replace(/```[\s\S]*?```/g, '').replace(/~~~[\s\S]*?~~~/g, '');
+            
+            FORBIDDEN_WORDS.forEach(word => {
+                if (cleanContent.includes(word)) errors.push(`發現禁用詞彙：「${word}」`);
+            });
+            SIMPLIFIED_CHARS.forEach(word => {
+                if (cleanContent.includes(word)) errors.push(`發現簡體字：「${word}」`);
+            });
+
+            // 顯示結果
+            if (errors.length > 0) {
+                errorPanel.style.display = 'block';
+                inputArea.style.display = 'none';
+                document.getElementById('error-list').textContent = errors.join('\n');
+            } else {
+                successPanel.style.display = 'block';
+                document.getElementById('success-message').textContent = '✅ 體檢通過！請點擊下方按鈕發布。';
+                document.getElementById('btn-publish').style.display = 'block';
+            }
         }
 
-        async function fetchFiles() {
-            const listEl = document.getElementById('file-list');
-            listEl.innerHTML = '<div style="text-align:center; color:var(--text-muted); font-size:0.9rem;">載入中...</div>';
-            try {
-                const data = await githubAPI(`/repos/${OWNER}/${PACKAGES_REPO}/contents/`);
-                // 去重
-                const uniqueFiles = Array.from(new Map(data.filter(f => f.name.endsWith('.md')).map(item => [item.name, item])).values());
-                
-                if (uniqueFiles.length === 0) { listEl.innerHTML = '<div style="text-align:center; color:var(--text-muted);">找不到任何 .md 檔案</div>'; return; }
+        function resetUI() {
+            document.getElementById('file-input').value = '';
+            document.getElementById('error-panel').style.display = 'none';
+            document.getElementById('success-panel').style.display = 'none';
+            document.getElementById('input-area').style.display = 'block';
+            document.getElementById('btn-publish').style.display = 'none';
+        }
 
-                listEl.innerHTML = ''; currentFilesData = []; 
-                
-                // 分類群組
-                const groups = {};
-                for (const file of uniqueFiles) {
-                    const cat = getCategoryInfo(file.name);
-                    if (!groups[cat.key]) groups[cat.key] = { ...cat, files: [] };
-                    groups[cat.key].files.push(file);
+        function copyError() {
+            const errorText = document.getElementById('error-list').textContent;
+            navigator.clipboard.writeText(`網頁體檢報錯：\n${errorText}`).then(() => alert('已複製錯誤訊息，請貼回對話框。'));
+        }
+
+        async function publishFile() {
+            const btn = document.getElementById('btn-publish');
+            btn.disabled = true; btn.textContent = '發布中...';
+            
+            const content = document.getElementById('file-input').value;
+            const repo = document.getElementById('target-repo').value;
+            const filePath = document.getElementById('target-file-path').value;
+
+            try {
+                // 1. 取得現有檔案 SHA (若不存在則為 null，視為新建)
+                let sha = null;
+                try {
+                    const existing = await githubAPI(`/repos/${OWNER}/${repo}/contents/${filePath}`);
+                    if (existing && existing.sha) sha = existing.sha;
+                } catch (e) {
+                    if (!e.message.includes('404')) throw e; // 404 代表新檔案，忽略
                 }
 
-                // 依照 order 排序並渲染
-                Object.values(groups).sort((a, b) => a.order - b.order).forEach(group => {
-                    const details = document.createElement('details');
-                    details.className = 'file-category';
-                    // 預設展開體系與專案
-                    if (group.key === 'core' || group.key === 'project') details.open = true; 
-                    
-                    let itemsHtml = '';
-                    // 群組內按檔名排序
-                    group.files.sort((a, b) => a.name.localeCompare(b.name));
-                    
-                    for (const file of group.files) {
-                        currentFilesData.push({ name: file.name, download_url: file.download_url });
-                        itemsHtml += `
-                            <div class="file-item">
-                                <div class="file-header">
-                                    <span class="file-name">${file.name}</span>
-                                    <span class="file-time">大小: ${(file.size / 1024).toFixed(1)} KB</span>
-                                </div>
-                                <div class="file-actions">
-                                    <button class="btn-primary btn-small" onclick="downloadFile('${file.download_url}', '${file.name}')">⬇️ 下載</button>
-                                    <button class="btn-success btn-small" onclick="copyFileContent('${file.name}')">📋 複製</button>
-                                    <button class="btn-outline btn-small" onclick="shareFile('${file.name}')">📤 分享</button>
-                                </div>
-                            </div>
-                        `;
-                    }
-                    details.innerHTML = `<summary>${group.title} (${group.files.length})</summary><div class="file-category-content">${itemsHtml}</div>`;
-                    listEl.appendChild(details);
+                // 2. 轉 Base64 (解決中文亂碼)
+                const base64Content = btoa(unescape(encodeURIComponent(content)));
+
+                // 3. PUT 發布
+                const body = {
+                    message: `Update ${filePath} via Console`,
+                    content: base64Content,
+                };
+                if (sha) body.sha = sha;
+
+                await githubAPI(`/repos/${OWNER}/${repo}/contents/${filePath}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(body)
                 });
+
+                document.getElementById('success-message').innerHTML = `🎉 已成功寫入：<br><b>${repo}/${filePath}</b>`;
+                btn.style.display = 'none';
             } catch (error) {
-                listEl.innerHTML = `<div style="text-align:center; color:var(--danger); font-size:0.9rem;">載入失敗: ${error.message}</div>`;
+                alert(`發布失敗：${error.message}`);
+                btn.disabled = false; btn.textContent = '🚀 確認發布到倉庫';
             }
         }
 
-        function downloadFile(url, filename) {
-            const a = document.createElement('a'); a.href = url; a.download = filename; a.target = '_blank';
-            document.body.appendChild(a); a.click(); document.body.removeChild(a);
-        }
+        // === 一鍵建庫 ===
+        async function createNewProject() {
+            const name = document.getElementById('new-repo-name').value.trim();
+            const domain = document.getElementById('new-repo-domain').value;
+            const pkgNo = document.getElementById('new-repo-pkg').value.trim();
+            const code = document.getElementById('new-repo-code').value.trim();
+            const display = document.getElementById('new-repo-display').value.trim();
 
-        // 因為改用 fetch 下載會遇到 CORS 問題，這裡改為點擊複製時才去抓內容
-        async function copyFileContent(name) {
-            const file = currentFilesData.find(f => f.name === name);
-            if (!file) return alert('找不到檔案資訊');
-            alert('正在讀取並複製，請稍候...');
+            if (!name || !pkgNo || !code) return alert('請填寫完整資訊');
+            
+            const btn = document.getElementById('btn-create-repo');
+            btn.disabled = true; btn.textContent = '建立中...';
+
             try {
-                const res = await fetch(file.download_url);
-                if(!res.ok) throw new Error('網路請求失敗');
-                const content = await res.text();
-                await navigator.clipboard.writeText(content);
-                alert(`已複製 ${name} 內容`);
-            } catch(e) {
-                alert('讀取或複製失敗：' + e.message);
-            }
-        }
+                // 1. 建立新倉庫 (auto_init: true 避免空庫問題)
+                await githubAPI(`/user/repos`, {
+                    method: 'POST',
+                    body: JSON.stringify({ name: name, private: false, auto_init: true })
+                });
 
-        async function shareFile(name) {
-            const file = currentFilesData.find(f => f.name === name);
-            if (!file) return alert('找不到檔案資訊');
-            if (navigator.share) {
+                // 等待兩秒讓 GitHub 生成初始 commit
+                await new Promise(r => setTimeout(r, 2000));
+
+                const v = Math.floor(Date.now() / 1000).toString();
+
+                // 2. 寫入 meta.json
+                const metaContent = JSON.stringify({
+                    domain: domain,
+                    pkg_no: pkgNo,
+                    code: code,
+                    display: display,
+                    _EOF: { F: `${name}/meta.json`, V: v, W: `init-${pkgNo}#1` }
+                }, null, 2);
+                
+                await githubAPI(`/repos/${OWNER}/${name}/contents/meta.json`, {
+                    method: 'PUT',
+                    body: JSON.stringify({ message: 'Init meta.json', content: btoa(unescape(encodeURIComponent(metaContent))) })
+                });
+
+                // 3. 寫入 AI-General 的 WF-HANDOFF.md
+                const wfContent = `# WF-HANDOFF (${display})\n\n## 專案基礎資訊\n\n- 專案編號：${pkgNo}\n- 領域代碼：${domain}\n\n/* ═══ EOF ═══\nF: AI-General/docs/p${pkgNo}/WF-HANDOFF.md\nV: ${v}\nW: init-${pkgNo}#1\n═══ */`;
+                
+                let wfSha = null;
                 try {
-                    const res = await fetch(file.download_url);
-                    const content = await res.text();
-                    await navigator.share({ title: name, text: content });
-                } catch(e) { alert('分享失敗：' + e.message); }
-            } else { alert('你的瀏覽器不支援原生分享功能，請使用「複製」按鈕。'); }
+                    const existWf = await githubAPI(`/repos/${OWNER}/AI-General/contents/docs/p${pkgNo}/WF-HANDOFF.md`);
+                    wfSha = existWf.sha;
+                } catch(e) {}
+
+                const wfBody = { message: 'Init WF-HANDOFF', content: btoa(unescape(encodeURIComponent(wfContent))) };
+                if (wfSha) wfBody.sha = wfSha;
+
+                await githubAPI(`/repos/${OWNER}/AI-General/contents/docs/p${pkgNo}/WF-HANDOFF.md`, {
+                    method: 'PUT', body: JSON.stringify(wfBody)
+                });
+
+                alert(`✅ 專案 ${name} 建立成功！`);
+                document.getElementById('new-repo-name').value = '';
+                document.getElementById('new-repo-pkg').value = '';
+                document.getElementById('new-repo-code').value = '';
+                document.getElementById('new-repo-display').value = '';
+            } catch (error) {
+                alert(`建庫失敗：${error.message}`);
+            } finally {
+                btn.disabled = false; btn.textContent = '🚀 一鍵建立專案';
+            }
         }
     </script>
 </head>
 <body>
 <div class="container">
-    <h1>🚀 AI 控制台</h1>
-    <div class="subtitle">共享包打包與遠端部署中心</div>
-
-    <div class="card" id="token-section">
-        <div class="card-title">🔑 憑證管理中心</div>
-        <input type="text" id="new-token-name" placeholder="名稱 (如：主要 GitHub)">
-        <select id="new-token-type">
-            <option value="GitHub">GitHub (用於控制台操作)</option>
-            <option value="OpenAI">OpenAI API Key</option>
-            <option value="Gemini">Gemini API Key</option>
-            <option value="Other">其他服務</option>
-        </select>
-        <input type="password" id="new-token-value" placeholder="Token 字串">
-        <button class="btn-primary" onclick="addToken()">➕ 新增 Token</button>
-        <div style="margin-top: 15px; border: 1px solid var(--border); border-radius: 8px; overflow: hidden;" id="token-list"></div>
-        <p style="font-size: 0.8rem; color: var(--text-muted); margin-top: 10px;">※ 只有「GitHub」類型的 Token 可以被設為啟用，用於下方控制台功能。</p>
+    
+    <div class="sticky-header">
+        <div class="card">
+            <div>
+                <h1>🚀 AI 控制台</h1>
+                <div class="subtitle">極簡發布與打包中心</div>
+            </div>
+            <div style="width: 120px;">
+                <button class="btn-primary" id="btn-trigger" onclick="triggerBuild()" style="padding: 8px;">▶️ 打包</button>
+                <div class="status-box" style="padding: 5px; font-size: 0.7rem; margin-top: 5px;">
+                    <div class="status-dot" id="build-status-dot"></div>
+                    <div id="build-status-text">等待操作</div>
+                </div>
+            </div>
+        </div>
     </div>
 
+    <!-- 核心發布區 -->
     <div class="card">
-        <div class="card-title">📦 共享包打包</div>
-        <button class="btn-primary" id="btn-trigger" onclick="triggerBuild()">▶️ 立即打包</button>
-        <div class="status-box">
-            <div class="status-dot" id="build-status-dot"></div>
-            <div id="build-status-text">等待操作...</div>
+        <div class="card-title">📦 檔案體檢與發布</div>
+        
+        <div id="input-area">
+            <textarea id="file-input" placeholder="請在此貼上 AI 交付的完整內容..."></textarea>
+            <button class="btn-primary" onclick="processFile()">🔍 檢查並準備發布</button>
+        </div>
+
+        <div class="error-panel" id="error-panel">
+            <div style="font-weight:bold; margin-bottom:10px;">❌ 檢查未通過</div>
+            <div class="error-list" id="error-list"></div>
+            <button class="btn-primary" style="background:#ef4444; margin-bottom:10px;" onclick="copyError()">📋 一鍵複製錯誤訊息</button>
+            <button class="btn-primary" style="background:#64748b;" onclick="resetUI()">🔄 清除並重新貼上</button>
+        </div>
+
+        <div class="success-panel" id="success-panel">
+            <div style="font-weight:bold; margin-bottom:10px;" id="success-message">✅ 體檢通過！</div>
+            <div style="font-size:0.85rem; margin-bottom:15px; font-family:monospace; background:#fff; padding:8px; border-radius:5px;" id="target-path-display"></div>
+            <input type="hidden" id="target-repo">
+            <input type="hidden" id="target-file-path">
+            <button class="btn-success" id="btn-publish" onclick="publishFile()">🚀 確認發布到倉庫</button>
+            <button class="btn-primary" style="background:#64748b; margin-top:10px;" onclick="resetUI()">取消</button>
         </div>
     </div>
 
-    <div class="card" id="backup-section">
-        <div class="card-title">💾 倉庫備份管理</div>
-        <div class="checkbox-group">
-            <label class="checkbox-label"><input type="checkbox" name="backup-repo" value="AI-kernel" checked> AI-kernel (體系核心)</label>
-            <label class="checkbox-label"><input type="checkbox" name="backup-repo" value="AI-General" checked> AI-General (體系紀錄)</label>
-            <label class="checkbox-label"><input type="checkbox" name="backup-repo" value="old-AI-WA-FAMILY" checked> old-AI-WA-FAMILY (專案源碼)</label>
-            <label class="checkbox-label"><input type="checkbox" name="backup-repo" value="AI-OS"> AI-OS (系統)</label>
+    <!-- 建庫區 -->
+    <div class="card">
+        <div class="card-title">🏗️ 建立新專案</div>
+        <input type="text" id="new-repo-name" placeholder="Repo 名稱 (如 AI-WA-NEW)">
+        <div style="display:flex; gap:10px;">
+            <select id="new-repo-domain" style="width:30%; padding:12px; border:1px solid #ccc; border-radius:8px;">
+                <option value="W">W (Web)</option>
+                <option value="V">V (VBA)</option>
+                <option value="D">D (Data)</option>
+                <option value="M">M (Mobile)</option>
+                <option value="E">E (Engine)</option>
+            </select>
+            <input type="text" id="new-repo-pkg" placeholder="編號 (如 92)" style="width:30%; margin-bottom:0;">
+            <input type="text" id="new-repo-code" placeholder="代碼 (如 UPGRADE)" style="width:40%; margin-bottom:0;">
         </div>
-        <input type="text" id="backup-target" placeholder="目標備份倉庫 (如 tlee20860-dotcom/AI-Backup)" value="tlee20860-dotcom/AI-Backup">
-        <button class="btn-primary" id="btn-backup" onclick="triggerBackup()">🚀 開始備份</button>
-        <div class="status-box">
-            <div class="status-dot" id="backup-status-dot"></div>
-            <div id="backup-status-text">等待操作...</div>
-        </div>
+        <input type="text" id="new-repo-display" placeholder="顯示名稱 (如 升級系統)" style="margin-top:10px;">
+        <button class="btn-primary" id="btn-create-repo" onclick="createNewProject()">🚀 一鍵建立專案</button>
     </div>
 
-    <div class="card" id="pages-section">
-        <div class="card-title">🌐 Pages 部署</div>
-        <input type="text" id="pages-repo" placeholder="目標 Repo (如 tlee20860-dotcom/AI-WEB-APP-Family)" value="tlee20860-dotcom/AI-WEB-APP-Family">
-        <input type="text" id="pages-branch" placeholder="分支 (預設 main)" value="main">
-        <button class="btn-primary" id="btn-deploy-pages" onclick="triggerPagesDeploy()">⚡ 觸發 Pages 部署</button>
-        <div class="status-box">
-            <div class="status-dot" id="pages-status-dot"></div>
-            <div id="pages-status-text">等待操作...</div>
+    <!-- Token 區 -->
+    <details>
+        <summary>🔑 憑證管理中心 (Token)</summary>
+        <div class="card" style="box-shadow:none; border:none; padding:0; margin-top:10px;">
+            <input type="text" id="new-token-name" placeholder="名稱 (如：主要 GitHub)">
+            <input type="password" id="new-token-value" placeholder="Token 字串">
+            <button class="btn-primary" onclick="addToken()">➕ 新增 Token</button>
+            <div style="margin-top: 15px; border-top: 1px solid var(--border);" id="token-list"></div>
         </div>
-    </div>
+    </details>
 
-    <div class="card" id="files-section">
-        <div class="card-title">📥 共享包獲取</div>
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-            <span style="font-size: 0.85rem; color: var(--text-muted);">從 AI-packages 獲取</span>
-            <button class="btn-outline btn-small" onclick="fetchFiles()">🔄 重新整理</button>
-        </div>
-        <div class="file-list" id="file-list"></div>
-    </div>
 </div>
 </body>
 </html>
 /* ═══ EOF ═══
 F: AI-infra/index.html
-V: 1792900075
-W: ai-system-20261024-012#117
+V: 1792904800
+W: ai-system-20261026-002#17
 ═══ */
