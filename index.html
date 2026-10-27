@@ -379,9 +379,18 @@
             navigator.clipboard.writeText(`網頁體檢報錯：\n${errorText}`).then(() => alert('已複製錯誤訊息，請貼回對話框。'));
         }
 
-        async function publishFile() {
+        async function publishFile(isForce = false) {
             if (!currentToken) return alert('請先設定 Token');
-            const btn = document.getElementById('btn-publish');
+            
+            let btn;
+            if (isForce) {
+                if (!confirm("⚠️ 警告：你正在強制發布檔案。\n\n這將忽略前端的繁簡、禁用詞等檢查，直接把內容寫入倉庫。\n\n確定要繼續嗎？")) return;
+                btn = document.getElementById('btn-force-publish');
+            } else {
+                btn = document.getElementById('btn-publish');
+            }
+            
+            const originalText = btn.textContent;
             btn.disabled = true; btn.textContent = '處理中...';
             
             let content = document.getElementById('file-input').value;
