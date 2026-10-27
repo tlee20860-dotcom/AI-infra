@@ -1,5 +1,5 @@
-// 將版號提升到 v8，強迫手機清空舊快取
-const CACHE_NAME = 'ai-console-v9'; 
+// 將版號提升到 v10，強迫手機清空舊快取並載入最新的 index.html
+const CACHE_NAME = 'ai-console-v10'; 
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
@@ -64,6 +64,6 @@ self.addEventListener('fetch', (event) => {
 
 /* ═══ EOF ═══
 F: AI-infra/sw.js
-V: 1792909700
-W: ai-system-003#47
+V: 1792910300
+W: ai-system-004
 ═══ */
