@@ -17,7 +17,6 @@
         body { background-color: var(--bg); color: var(--text); padding: 15px; line-height: 1.5; -webkit-tap-highlight-color: transparent; padding-bottom: 80px; }
         .container { max-width: 600px; margin: 0 auto; }
         
-        /* Sticky Header */
         .sticky-header { position: sticky; top: 0; background: rgba(248, 250, 252, 0.95); backdrop-filter: blur(8px); z-index: 100; padding: 10px 0; margin-bottom: 15px; border-bottom: 1px solid var(--border); }
         .sticky-header .card { margin-bottom: 0; display: flex; align-items: center; justify-content: space-between; padding: 10px 15px; }
         
@@ -55,65 +54,58 @@
         const OWNER = 'tlee20860-dotcom';
         const INFRA_REPO = 'AI-infra';
         const WORKFLOW_ID = 'setup-structure.yml';
-        
+        const CONFIG_URL = `https://raw.githubusercontent.com/${OWNER}/AI-kernel/main/docs/r-rules/validate-config.json`;
+        const FORBIDDEN_URL = `https://raw.githubusercontent.com/${OWNER}/AI-kernel/main/docs/r-rules/forbidden_words.txt`;
+        const REPOS_URL = `https://raw.githubusercontent.com/${OWNER}/AI-infra/main/config/repos.json`;
+
         let currentToken = '';
         let tokenList = [];
         let triggerTime = 0;
         let pollInterval = null;
 
-        // 動態載入的規則
+        // 動態載入的規則與配置
         let globalForbiddenWords = [];
-        let globalSimplifiedChars = [];
-        let globalFileSpecificRules = {};
-        let allowedRepos = ['AI-kernel', 'AI-General', 'AI-infra']; // 預設體系白名單
+        let globalConfig = { console_rules: {}, file_specific_rules: {} };
+        let allowedRepos = [];
 
         window.onload = async () => {
             loadTokens(); 
-            
-            loadDictionaries().then(() => {
-                if (currentToken) checkBuildStatus();
-                else updateStatus('build-status', '', '請先設定 Token');
-            });
+            await loadDictionaries();
+            if (currentToken) checkBuildStatus();
+            else updateStatus('build-status', '', '請先設定 Token');
         };
 
-        // === 從遠端載入字典與倉庫清單 ===
+        // === 從遠端載入所有規則 ===
         async function loadDictionaries() {
             try {
-                // 1. 讀取禁用詞
-                const txtUrl = `https://raw.githubusercontent.com/${OWNER}/AI-kernel/main/docs/r-rules/forbidden_words.txt?t=${Date.now()}`;
-                const txtRes = await fetch(txtUrl);
+                const txtRes = await fetch(`${FORBIDDEN_URL}?t=${Date.now()}`);
                 if (txtRes.ok) {
                     const text = await txtRes.text();
                     globalForbiddenWords = text.split('\n').map(w => w.trim()).filter(w => w && !w.startsWith('#'));
                 }
                 
-                // 2. 讀取簡體字與特定規則
-                const jsonUrl = `https://raw.githubusercontent.com/${OWNER}/AI-kernel/main/docs/r-rules/validate-config.json?t=${Date.now()}`;
-                const jsonRes = await fetch(jsonUrl);
+                const jsonRes = await fetch(`${CONFIG_URL}?t=${Date.now()}`);
                 if (jsonRes.ok) {
-                    const data = await jsonRes.json();
-                    if (data.simplified_chars) globalSimplifiedChars = data.simplified_chars;
-                    if (data.file_specific_rules) globalFileSpecificRules = data.file_specific_rules;
+                    globalConfig = await jsonRes.json();
+                    if (globalConfig.console_rules && globalConfig.console_rules.base_system_repos) {
+                        allowedRepos = [...globalConfig.console_rules.base_system_repos];
+                    }
                 }
 
-                // 3. 讀取倉庫白名單 (從 repos.json)
-                const reposUrl = `https://raw.githubusercontent.com/${OWNER}/AI-infra/main/config/repos.json?t=${Date.now()}`;
-                const reposRes = await fetch(reposUrl);
+                const reposRes = await fetch(`${REPOS_URL}?t=${Date.now()}`);
                 if (reposRes.ok) {
                     const reposData = await reposRes.json();
-                    // 將所有專案名稱加入白名單
                     if (reposData.projects) {
                         reposData.projects.forEach(p => {
-                            const repoName = p.repo.split('/')[1]; // 取得 "AI-WA-NEW" 這種短名稱
+                            const repoName = p.repo.split('/')[1];
                             if (repoName && !allowedRepos.includes(repoName)) {
                                 allowedRepos.push(repoName);
                             }
                         });
                     }
                 }
-                console.log("✅ 白名單載入成功", allowedRepos);
             } catch (e) {
-                console.warn("⚠️ 無法載入遠端字典或白名單，將使用預設值。", e);
+                console.warn("⚠️ 無法載入遠端配置，將使用預設值。", e);
             }
         }
 
@@ -173,11 +165,7 @@
         // === GitHub API ===
         async function githubAPI(url, options = {}) {
             if (!currentToken) throw new Error("未啟用 GitHub Token");
-            const headers = { 
-                'Accept': 'application/vnd.github.v3+json', 
-                'Authorization': `token ${currentToken.trim()}`, 
-                ...options.headers 
-            };
+            const headers = { 'Accept': 'application/vnd.github.v3+json', 'Authorization': `token ${currentToken.trim()}`, ...options.headers };
             let res;
             try {
                 res = await fetch(`https://api.github.com${url}?t=${Date.now()}`, { ...options, headers });
@@ -256,14 +244,16 @@
             if (!content.trim()) return alert('請先貼上內容');
 
             let errors = [];
-            let repo = "", filePath = "";
+            let repo = "", filePath = "", fullPath = "未知路徑";
+            const rules = globalConfig.console_rules || {};
 
-            // 1. 擷取 F: 路徑
+            // 1. 擷取 F: 路徑 (JavaScript 寫死正則，避免 JSON 轉義災難)
             const pathMatch = content.match(/(?:F:|"F":)\s*"?([^\s"\n]+)"?/);
+            
             if (!pathMatch) {
                 errors.push("找不到 F: 路徑標記。請確認 AI 是否漏寫 EOF。");
             } else {
-                const fullPath = pathMatch[1];
+                fullPath = pathMatch[1];
                 const pathParts = fullPath.split('/');
                 if (pathParts.length < 2) {
                     errors.push(`路徑格式錯誤：${fullPath}。必須包含倉庫名。`);
@@ -271,7 +261,6 @@
                     repo = pathParts[0];
                     filePath = pathParts.slice(1).join('/');
                     
-                    // 使用動態載入的白名單進行比對
                     if (!allowedRepos.includes(repo)) {
                         errors.push(`未知的倉庫目標：${repo}。請確認是否已在 config/repos.json 中註冊。`);
                     }
@@ -282,25 +271,32 @@
             }
 
             // 2. 獲取特定檔案的豁免規則
-            let specificRule = {};
-            const fullTargetPath = `${repo}/${filePath}`;
-            if (globalFileSpecificRules[fullTargetPath]) {
-                specificRule = globalFileSpecificRules[fullTargetPath];
+            let specificRule = (globalConfig.file_specific_rules && globalConfig.file_specific_rules[`${repo}/${filePath}`]) || {};
+
+            // 3. 自動豁免：使用配置檔中的紀錄檔路徑規則
+            let isRecordFile = false;
+            if (rules.record_auto_exempt !== false && repo === rules.record_exempt_repo) {
+                const exemptPaths = rules.record_exempt_paths || [];
+                isRecordFile = exemptPaths.some(p => filePath.includes(p));
             }
 
-            // 3. 進行掃描 (不掃描程式碼區塊)
+            // 4. 自動豁免：如果是程式碼檔案，不檢查禁用詞 (因為程式碼有 ... 等語法)
+            const isCodeFile = filePath.endsWith('.js') || filePath.endsWith('.css') || filePath.endsWith('.html') || filePath.endsWith('.py') || filePath.endsWith('.sh');
+
+            // 5. 進行掃描 (不掃描程式碼區塊)
             const cleanContent = content.replace(/```[\s\S]*?```/g, '').replace(/~~~[\s\S]*?~~~/g, '');
             
-            // 檢查禁用詞 (可被豁免)
-            if (specificRule.check_forbidden_words !== false) {
+            // 檢查禁用詞
+            if (specificRule.check_forbidden_words !== false && !isRecordFile && !isCodeFile) {
                 globalForbiddenWords.forEach(word => {
                     if (cleanContent.includes(word)) errors.push(`發現禁用詞彙：「${word}」`);
                 });
             }
 
-            // 檢查簡體字 (可被豁免)
+            // 檢查簡體字
             if (specificRule.check_simplified !== false) {
-                globalSimplifiedChars.forEach(word => {
+                const simplified = globalConfig.simplified_chars || [];
+                simplified.forEach(word => {
                     if (cleanContent.includes(word)) errors.push(`發現簡體字：「${word}」`);
                 });
             }
@@ -309,7 +305,12 @@
             if (errors.length > 0) {
                 errorPanel.style.display = 'block';
                 inputArea.style.display = 'none';
-                document.getElementById('error-list').textContent = errors.join('\n');
+                
+                let header = "";
+                if (rules.show_file_path_in_error !== false) {
+                    header = (rules.error_header_format || "📄 檔案：{path}\n------------------------\n").replace("{path}", fullPath);
+                }
+                document.getElementById('error-list').textContent = header + errors.join('\n');
             } else {
                 successPanel.style.display = 'block';
                 document.getElementById('success-message').textContent = '✅ 體檢通過！請點擊下方按鈕發布。';
@@ -354,7 +355,10 @@
 
                 let finalContent = content;
 
-                const patchMatch = content.match(/<<<<<<< OLD\n([\s\S]*?)\n=======\n([\s\S]*?)\n>>>>>>> NEW/);
+                // 使用固定的標籤進行替換判定
+                const patchRegex = /<<<<<<< OLD\n([\s\S]*?)\n=======\n([\s\S]*?)\n>>>>>>> NEW/;
+                const patchMatch = content.match(patchRegex);
+                
                 if (patchMatch && originalContent) {
                     const oldStr = patchMatch[1];
                     const newStr = patchMatch[2];
@@ -544,6 +548,6 @@
 </html>
 <!-- ═══ EOF ═══
 F: AI-infra/index.html
-V: 1792907600
-W: ai-system-003#26
+V: 1792908100
+W: ai-system-003#31
 ═══ -->
