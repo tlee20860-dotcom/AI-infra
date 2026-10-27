@@ -1,4 +1,5 @@
-const CACHE_NAME = 'ai-console-v5';
+// 將版號提升，每次大改版時改這裡（如 v6 改 v7），強迫手機清空舊快取
+const CACHE_NAME = 'ai-console-v6'; 
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
@@ -6,15 +7,17 @@ const ASSETS_TO_CACHE = [
 ];
 
 self.addEventListener('install', (event) => {
+  // 強制讓新的 Service Worker 立刻接管，不等待舊的關閉
+  self.skipWaiting();
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
       return cache.addAll(ASSETS_TO_CACHE);
     })
   );
-  self.skipWaiting();
 });
 
 self.addEventListener('activate', (event) => {
+  // 清除所有非當前版號的舊快取
   event.waitUntil(
     caches.keys().then((cacheNames) => {
       return Promise.all(
@@ -24,33 +27,46 @@ self.addEventListener('activate', (event) => {
           }
         })
       );
-    })
+    }).then(() => self.clients.claim()) // 立刻控制所有開啟的網頁
   );
-  self.clients.claim();
 });
 
 self.addEventListener('fetch', (event) => {
-  if (event.request.method !== 'GET' || event.request.url.includes('api.github.com')) {
+  // 遇到 API 請求或非 GET 請求，直接放行，絕對不攔截快取
+  if (event.request.method !== 'GET' || event.request.url.includes('api.github.com') || event.request.url.includes('raw.githubusercontent.com')) {
     return;
   }
 
+  // 針對 HTML 網頁，採用「網路優先」策略
+  if (event.request.mode === 'navigate' || event.request.url.endsWith('index.html') || event.request.url.endsWith('/')) {
+    event.respondWith(
+      fetch(event.request)
+        .then((response) => {
+          // 抓到最新版，更新快取
+          const responseClone = response.clone();
+          caches.open(CACHE_NAME).then((cache) => {
+            cache.put(event.request, responseClone);
+          });
+          return response;
+        })
+        .catch(() => {
+          // 斷網時，才退回使用舊快取
+          return caches.match(event.request);
+        })
+    );
+    return;
+  }
+
+  // 其他靜態資源（如圖片），採用「快取優先」
   event.respondWith(
-    fetch(event.request)
-      .then((response) => {
-        const responseClone = response.clone();
-        caches.open(CACHE_NAME).then((cache) => {
-          cache.put(event.request, responseClone);
-        });
-        return response;
-      })
-      .catch(() => {
-        return caches.match(event.request);
-      })
+    caches.match(event.request).then((cachedResponse) => {
+      return cachedResponse || fetch(event.request);
+    })
   );
 });
 
 /* ═══ EOF ═══
 F: AI-infra/sw.js
-V: 1792900076
-W: ai-system-20261024-012#118
+V: 1792907100
+W: ai-system-003#20
 ═══ */
