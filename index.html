@@ -162,16 +162,26 @@
             });
         }
 
-        // === GitHub API ===
+        // === GitHub API (加入超時機制) ===
         async function githubAPI(url, options = {}) {
             if (!currentToken) throw new Error("未啟用 GitHub Token");
             const headers = { 'Accept': 'application/vnd.github.v3+json', 'Authorization': `token ${currentToken.trim()}`, ...options.headers };
+            
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 15000); // 15秒超時
+
             let res;
             try {
-                res = await fetch(`https://api.github.com${url}?t=${Date.now()}`, { ...options, headers });
+                res = await fetch(`https://api.github.com${url}?t=${Date.now()}`, { ...options, headers, signal: controller.signal });
             } catch (fetchError) {
+                if (fetchError.name === 'AbortError') {
+                    throw new Error("連線超時（15秒），請檢查手機網路或稍後重試。");
+                }
                 throw new Error("無法連線至 GitHub（請確認 Token 無多餘空白，或關閉廣告攔截器）");
+            } finally {
+                clearTimeout(timeoutId);
             }
+
             if (!res.ok) {
                 let errMsg = `API 錯誤: ${res.status}`;
                 try { const errData = await res.json(); if (errData.message) errMsg += ` - ${errData.message}`; } catch(e) {}
@@ -247,7 +257,6 @@
             let repo = "", filePath = "", fullPath = "未知路徑";
             const rules = globalConfig.console_rules || {};
 
-            // 1. 擷取 F: 路徑 (JavaScript 寫死正則，避免 JSON 轉義災難)
             const pathMatch = content.match(/(?:F:|"F":)\s*"?([^\s"\n]+)"?/);
             
             if (!pathMatch) {
@@ -270,30 +279,24 @@
                 }
             }
 
-            // 2. 獲取特定檔案的豁免規則
             let specificRule = (globalConfig.file_specific_rules && globalConfig.file_specific_rules[`${repo}/${filePath}`]) || {};
 
-            // 3. 自動豁免：使用配置檔中的紀錄檔路徑規則
             let isRecordFile = false;
             if (rules.record_auto_exempt !== false && repo === rules.record_exempt_repo) {
                 const exemptPaths = rules.record_exempt_paths || [];
                 isRecordFile = exemptPaths.some(p => filePath.includes(p));
             }
 
-            // 4. 自動豁免：如果是程式碼檔案，不檢查禁用詞 (因為程式碼有 ... 等語法)
             const isCodeFile = filePath.endsWith('.js') || filePath.endsWith('.css') || filePath.endsWith('.html') || filePath.endsWith('.py') || filePath.endsWith('.sh');
 
-            // 5. 進行掃描 (不掃描程式碼區塊)
             const cleanContent = content.replace(/```[\s\S]*?```/g, '').replace(/~~~[\s\S]*?~~~/g, '');
             
-            // 檢查禁用詞
             if (specificRule.check_forbidden_words !== false && !isRecordFile && !isCodeFile) {
                 globalForbiddenWords.forEach(word => {
                     if (cleanContent.includes(word)) errors.push(`發現禁用詞彙：「${word}」`);
                 });
             }
 
-            // 檢查簡體字
             if (specificRule.check_simplified !== false) {
                 const simplified = globalConfig.simplified_chars || [];
                 simplified.forEach(word => {
@@ -301,7 +304,6 @@
                 });
             }
 
-            // 顯示結果
             if (errors.length > 0) {
                 errorPanel.style.display = 'block';
                 inputArea.style.display = 'none';
@@ -324,6 +326,9 @@
             document.getElementById('success-panel').style.display = 'none';
             document.getElementById('input-area').style.display = 'block';
             document.getElementById('btn-publish').style.display = 'none';
+            const btn = document.getElementById('btn-publish');
+            btn.disabled = false; 
+            btn.textContent = '🚀 確認發布到倉庫';
         }
 
         function copyError() {
@@ -334,7 +339,7 @@
         async function publishFile() {
             if (!currentToken) return alert('請先設定 Token');
             const btn = document.getElementById('btn-publish');
-            btn.disabled = true; btn.textContent = '處理中...';
+            btn.disabled = true; btn.textContent = '正在取得原檔...';
             
             let content = document.getElementById('file-input').value;
             const repo = document.getElementById('target-repo').value;
@@ -353,9 +358,9 @@
                     if (!e.message.includes('404')) throw e;
                 }
 
+                btn.textContent = '正在替換與檢查...';
                 let finalContent = content;
 
-                // 使用固定的標籤進行替換判定
                 const patchRegex = /<<<<<<< OLD\n([\s\S]*?)\n=======\n([\s\S]*?)\n>>>>>>> NEW/;
                 const patchMatch = content.match(patchRegex);
                 
@@ -382,6 +387,7 @@
                     finalContent = base + "\n\n" + appendContent;
                 }
 
+                btn.textContent = '正在寫入倉庫...';
                 const base64Content = btoa(unescape(encodeURIComponent(finalContent)));
 
                 const body = {
@@ -548,6 +554,6 @@
 </html>
 <!-- ═══ EOF ═══
 F: AI-infra/index.html
-V: 1792908100
-W: ai-system-003#31
+V: 1792908400
+W: ai-system-003#34
 ═══ -->
