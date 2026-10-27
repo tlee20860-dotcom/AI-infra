@@ -326,6 +326,7 @@
             document.getElementById('success-panel').style.display = 'none';
             document.getElementById('input-area').style.display = 'block';
             document.getElementById('btn-publish').style.display = 'none';
+            
             const btn = document.getElementById('btn-publish');
             btn.disabled = false; 
             btn.textContent = '🚀 確認發布到倉庫';
@@ -404,6 +405,9 @@
 
                 document.getElementById('success-message').innerHTML = `🎉 已成功寫入：<br><b>${repo}/${filePath}</b>`;
                 btn.style.display = 'none';
+                
+                // 顯示清空並繼續的按鈕
+                document.getElementById('btn-reset-next').style.display = 'block';
             } catch (error) {
                 alert(`發布失敗：${error.message}`);
                 btn.disabled = false; btn.textContent = '🚀 確認發布到倉庫';
@@ -514,7 +518,11 @@
             <div style="font-size:0.85rem; margin-bottom:15px; font-family:monospace; background:#fff; padding:8px; border-radius:5px;" id="target-path-display"></div>
             <input type="hidden" id="target-repo">
             <input type="hidden" id="target-file-path">
+            
             <button class="btn-success" id="btn-publish" onclick="publishFile()">🚀 確認發布到倉庫</button>
+            <!-- 新增：發布成功後顯示的按鈕 -->
+            <button class="btn-primary" id="btn-reset-next" style="display:none; margin-top:10px;" onclick="resetUI()">📝 繼續貼上下一個檔案</button>
+            
             <button class="btn-primary" style="background:#64748b; margin-top:10px;" onclick="resetUI()">取消</button>
         </div>
     </div>
@@ -554,6 +562,6 @@
 </html>
 <!-- ═══ EOF ═══
 F: AI-infra/index.html
-V: 1792908400
-W: ai-system-003#34
+V: 1792908600
+W: ai-system-003#36
 ═══ -->
