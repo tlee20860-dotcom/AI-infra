@@ -268,7 +268,17 @@
             let repo = "", filePath = "", fullPath = "未知路徑";
             const rules = globalConfig.console_rules || {};
 
-            const pathMatch = content.match(/(?:F:|"F":)\s*"?([^\s"\n]+)"?/);
+            // 優先匹配標準的 EOF 結構 (F, V, W)
+            let eofMatch = content.match(/F:\s*([^\s\n]+)\s*\nV:\s*\d+\s*\nW:\s*[^\s\n]+/);
+            let pathMatch = null;
+            
+            if (eofMatch) {
+                // 精準提取 F 後面的路徑
+                pathMatch = eofMatch[0].match(/F:\s*([^\s\n]+)/);
+            } else {
+                // 如果找不到標準 EOF，退回舊的寬鬆匹配 (防呆用)
+                pathMatch = content.match(/(?:F:|"F":)\s*"?([^\s"\n]+)"?/);
+            }
             
             if (!pathMatch) {
                 errors.push("找不到 F: 路徑標記。請確認 AI 是否漏寫 EOF。");
