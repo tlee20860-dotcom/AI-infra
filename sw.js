@@ -1,5 +1,5 @@
-// 將版號提升，每次大改版時改這裡（如 v6 改 v7），強迫手機清空舊快取
-const CACHE_NAME = 'ai-console-v6'; 
+// 將版號提升到 v8，強迫手機清空舊快取
+const CACHE_NAME = 'ai-console-v8'; 
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
@@ -7,8 +7,7 @@ const ASSETS_TO_CACHE = [
 ];
 
 self.addEventListener('install', (event) => {
-  // 強制讓新的 Service Worker 立刻接管，不等待舊的關閉
-  self.skipWaiting();
+  self.skipWaiting(); // 強制立刻接管
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
       return cache.addAll(ASSETS_TO_CACHE);
@@ -42,7 +41,6 @@ self.addEventListener('fetch', (event) => {
     event.respondWith(
       fetch(event.request)
         .then((response) => {
-          // 抓到最新版，更新快取
           const responseClone = response.clone();
           caches.open(CACHE_NAME).then((cache) => {
             cache.put(event.request, responseClone);
@@ -50,14 +48,13 @@ self.addEventListener('fetch', (event) => {
           return response;
         })
         .catch(() => {
-          // 斷網時，才退回使用舊快取
           return caches.match(event.request);
         })
     );
     return;
   }
 
-  // 其他靜態資源（如圖片），採用「快取優先」
+  // 其他靜態資源
   event.respondWith(
     caches.match(event.request).then((cachedResponse) => {
       return cachedResponse || fetch(event.request);
@@ -67,6 +64,6 @@ self.addEventListener('fetch', (event) => {
 
 /* ═══ EOF ═══
 F: AI-infra/sw.js
-V: 1792907100
-W: ai-system-003#20
+V: 1792909700
+W: ai-system-003#47
 ═══ */
