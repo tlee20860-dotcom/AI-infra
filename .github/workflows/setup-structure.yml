@@ -131,8 +131,19 @@ jobs:
       - name: "Step 1.5: 生成體系狀態 (20-SP-Sys.md)"
         run: |
           OUTPUT="build-repo/20-SP-Sys.md"
+          
+          SYS_W=""
+          if [ -f "AI-General/docs/records/SYSTEM-HANDOFF.md" ]; then
+            SYS_W=$(grep -E "^W: " "AI-General/docs/records/SYSTEM-HANDOFF.md" | head -1 | awk '{print $2}')
+          fi
+
           echo "> 體系版本：${{ env.SYS_VER }}" > "$OUTPUT"
           echo "> 生成時間：$(TZ=Asia/Hong_Kong date '+%Y-%m-%d %H:%M:%S') (HKT)" >> "$OUTPUT"
+          if [ -n "$SYS_W" ]; then
+            echo "> ⚠️ 給 AI 的強制指示：上次體系對話編號為 ${SYS_W}，本次請依 A-00 §2.9 推算並套用。" >> "$OUTPUT"
+          else
+            echo "> ⚠️ 給 AI 的強制指示：無上次體系編號，本次請預設使用 ai-system-001。" >> "$OUTPUT"
+          fi
           echo "" >> "$OUTPUT"
           echo "# AI 對話系統 - 體系狀態包" >> "$OUTPUT"
           echo "" >> "$OUTPUT"
@@ -270,8 +281,18 @@ jobs:
               continue
             fi
 
+            PROJ_W=""
+            if [ -f "$PROJ_DIR/WF-HANDOFF.md" ]; then
+              PROJ_W=$(grep -E "^W: " "$PROJ_DIR/WF-HANDOFF.md" | head -1 | awk '{print $2}')
+            fi
+
             echo "> 體系版本：${{ env.SYS_VER }}" > "$OUTPUT"
             echo "> 生成時間：$(TZ=Asia/Hong_Kong date '+%Y-%m-%d %H:%M:%S') (HKT)" >> "$OUTPUT"
+            if [ -n "$PROJ_W" ]; then
+              echo "> ⚠️ 給 AI 的強制指示：上次專案對話編號為 ${PROJ_W}，本次請依 A-00 §2.9 推算並套用。" >> "$OUTPUT"
+            else
+              echo "> ⚠️ 給 AI 的強制指示：無上次專案編號，本次請預設使用 ${CODE}-001。" >> "$OUTPUT"
+            fi
             echo "" >> "$OUTPUT"
             echo "# 專案狀態包：${SAFE_NAME}" >> "$OUTPUT"
             echo "" >> "$OUTPUT"
@@ -503,6 +524,6 @@ jobs:
 
 # ═══ EOF ═══
 # F: AI-infra/.github/workflows/setup-structure.yml
-# V: 1792900180
-# W: ai-system-20261025-001#2
+# V: 1792909100
+# W: ai-system-004
 # ═══ EOF ═══
