@@ -23,6 +23,13 @@
     "code": "ai-os",
     "display": "AI-OS 系統",
     "pkg_no": "91"
+  },
+  {
+    "repo": "tlee20860-dotcom/AI-WA-UPWO",
+    "domain": "W",
+    "code": "UPGRADE",
+    "display": "UPGRADE-WO",
+    "pkg_no": "92"
   }
 ]
 }
