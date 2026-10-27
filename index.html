@@ -289,7 +289,10 @@
 
             const isCodeFile = filePath.endsWith('.js') || filePath.endsWith('.css') || filePath.endsWith('.html') || filePath.endsWith('.py') || filePath.endsWith('.sh');
 
-            const cleanContent = content.replace(/```[\s\S]*?```/g, '').replace(/~~~[\s\S]*?~~~/g, '');
+            // 1. 拔除程式碼區塊
+            let cleanContent = content.replace(/```[\s\S]*?```/g, '').replace(/~~~[\s\S]*?~~~/g, '');
+            // 2. 拔除引號與反引號內的定義 (防自指陷阱)
+            cleanContent = cleanContent.replace(/「[^」]*」/g, '').replace(/`[^`]*`/g, '');
             
             if (specificRule.check_forbidden_words !== false && !isRecordFile && !isCodeFile) {
                 globalForbiddenWords.forEach(word => {
@@ -520,9 +523,7 @@
             <input type="hidden" id="target-file-path">
             
             <button class="btn-success" id="btn-publish" onclick="publishFile()">🚀 確認發布到倉庫</button>
-            <!-- 新增：發布成功後顯示的按鈕 -->
             <button class="btn-primary" id="btn-reset-next" style="display:none; margin-top:10px;" onclick="resetUI()">📝 繼續貼上下一個檔案</button>
-            
             <button class="btn-primary" style="background:#64748b; margin-top:10px;" onclick="resetUI()">取消</button>
         </div>
     </div>
@@ -562,6 +563,6 @@
 </html>
 <!-- ═══ EOF ═══
 F: AI-infra/index.html
-V: 1792908600
-W: ai-system-003#36
+V: 1792909300
+W: ai-system-003#43
 ═══ -->
