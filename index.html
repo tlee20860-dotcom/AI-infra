@@ -22,11 +22,14 @@
         .card-title { font-size: 1.1rem; font-weight: bold; margin-bottom: 12px; display: flex; align-items: center; gap: 8px; color: var(--text); }
         
         /* Sticky Header 專用樣式 */
-        .sticky-header { position: sticky; top: 0; background: rgba(248, 250, 252, 0.95); backdrop-filter: blur(8px); z-index: 100; padding: 10px 0; margin-bottom: 15px; border-bottom: 1px solid var(--border); }
-        .sticky-header .card { margin-bottom: 0; display: flex; align-items: center; justify-content: space-between; }
+        .sticky-header { position: sticky; top: 0; background: rgba(248, 250, 252, 0.95); backdrop-filter: blur(8px); z-index: 100; padding: 10px 0; margin-bottom: 5px; }
+        .sticky-header .card { margin-bottom: 0; display: flex; align-items: center; justify-content: space-between; padding: 12px 15px; }
         .header-title-group { display: flex; flex-direction: column; justify-content: center; }
         .header-title { font-size: 1.1rem; font-weight: bold; display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
         .subtitle { color: var(--text-muted); font-size: 0.8rem; }
+        
+        /* 右側打包與狀態區塊 */
+        .action-group { display: flex; flex-direction: column; gap: 8px; min-width: 130px; max-width: 150px; }
         
         input[type="text"], input[type="password"], textarea { width: 100%; padding: 12px; border: 1px solid var(--border); border-radius: 8px; font-size: 0.95rem; margin-bottom: 10px; font-family: inherit; }
         textarea { resize: vertical; min-height: 120px; font-family: monospace; }
@@ -37,8 +40,8 @@
         .btn-danger { background-color: var(--danger); color: white; }
         .btn-small { width: auto; padding: 6px 10px; font-size: 0.8rem; border-radius: 6px; }
         
-        .status-box { padding: 10px; border-radius: 8px; background-color: #f1f5f9; margin-top: 5px; font-size: 0.75rem; display: flex; align-items: center; gap: 10px; }
-        .status-dot { width: 10px; height: 10px; border-radius: 50%; background-color: var(--text-muted); flex-shrink: 0; }
+        .status-box { padding: 8px; border-radius: 8px; background-color: #f1f5f9; font-size: 0.75rem; display: flex; align-items: center; gap: 6px; width: 100%; }
+        .status-dot { width: 8px; height: 8px; border-radius: 50%; background-color: var(--text-muted); flex-shrink: 0; }
         .status-dot.running { background-color: var(--warning); animation: pulse 1.5s infinite; }
         .status-dot.success { background-color: var(--success); }
         .status-dot.failure { background-color: var(--danger); }
@@ -65,6 +68,7 @@
         let tokenList = [];
         let triggerTime = 0;
         let pollInterval = null;
+        let hasUnpackedChanges = false; // 標記是否有新發布但未打包的檔案
 
         // 動態載入的規則與配置
         let globalForbiddenWords = [];
@@ -202,6 +206,10 @@
             const btn = document.getElementById('btn-trigger');
             btn.disabled = true; triggerTime = Date.now();
             updateStatus('build-status', 'running', '發送指令...');
+            
+            // 使用者手動按了打包，解除黃燈提示
+            hasUnpackedChanges = false;
+
             try {
                 await githubAPI(`/repos/${OWNER}/${INFRA_REPO}/actions/workflows/${WORKFLOW_ID}/dispatches`, {
                     method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ref: 'main' })
@@ -401,9 +409,17 @@
                     method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body)
                 });
 
-                document.getElementById('success-message').innerHTML = `🎉 已成功寫入：<br><b>${repo}/${filePath}</b>`;
+                // 獲取當前時間格式：HH:MM:SS
+                const timeStr = new Date().toLocaleTimeString('zh-TW', { hour12: false });
+                
+                document.getElementById('success-message').innerHTML = `🎉 已成功寫入：<br><b>${repo}/${filePath}</b><br><span style="font-size:0.85rem; color:#047857; font-weight:normal;">⏱️ 寫入時間：${timeStr}</span>`;
                 btn.style.display = 'none';
                 document.getElementById('btn-reset-next').style.display = 'block';
+
+                // 觸發頂部狀態提示：有新檔案，請重新打包
+                hasUnpackedChanges = true;
+                updateStatus('build-status', 'running', '有新檔案！請點擊打包');
+
             } catch (error) {
                 alert(`發布失敗：${error.message}`);
                 btn.disabled = false; btn.textContent = '🚀 確認發布到倉庫';
@@ -479,11 +495,11 @@
                 <div class="header-title">🚀 AI 控制台</div>
                 <div class="subtitle">極簡發布與打包中心</div>
             </div>
-            <div style="width: 120px;">
+            <div class="action-group">
                 <button class="btn-primary" id="btn-trigger" onclick="triggerBuild()" style="padding: 8px; font-size:0.9rem;">▶️ 打包</button>
                 <div class="status-box">
                     <div class="status-dot" id="build-status-dot"></div>
-                    <div id="build-status-text">等待操作</div>
+                    <div id="build-status-text" style="line-height:1.2;">等待操作</div>
                 </div>
             </div>
         </div>
@@ -552,6 +568,6 @@
 </html>
 <!-- ═══ EOF ═══
 F: AI-infra/index.html
-V: 1792909400
-W: ai-system-003#44
+V: 1792909600
+W: ai-system-003#46
 ═══ -->
