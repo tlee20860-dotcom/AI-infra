@@ -315,7 +315,18 @@
             
             if (specificRule.check_forbidden_words !== false && !isRecordFile && !isCodeFile) {
                 globalForbiddenWords.forEach(word => {
+                    // 防呆：如果是單字「略」，必須確保它不是「忽略」或「省略」等複合詞
+                    let regex;
+                    if (word === '略') {
+                        regex = /(?<!忽|省|策|戰|大|方|概)略/;
+                    } else {
+                        regex = new RegExp(word.replace(/[.*+?^${}()|[\]\\]/g, '\\            if (specificRule.check_forbidden_words !== false && !isRecordFile && !isCodeFile) {
+                globalForbiddenWords.forEach(word => {
                     if (cleanContent.includes(word)) errors.push(`發現禁用詞彙：「${word}」`);
+                });
+            }'));
+                    }
+                    if (regex.test(cleanContent)) errors.push(`發現禁用詞彙：「${word}」`);
                 });
             }
 
