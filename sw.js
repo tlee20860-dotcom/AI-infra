@@ -1,5 +1,5 @@
 // 將版號提升到 v8，強迫手機清空舊快取
-const CACHE_NAME = 'ai-console-v8'; 
+const CACHE_NAME = 'ai-console-v9'; 
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
