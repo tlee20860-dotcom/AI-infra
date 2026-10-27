@@ -17,13 +17,16 @@
         body { background-color: var(--bg); color: var(--text); padding: 15px; line-height: 1.5; -webkit-tap-highlight-color: transparent; padding-bottom: 80px; }
         .container { max-width: 600px; margin: 0 auto; }
         
-        .sticky-header { position: sticky; top: 0; background: rgba(248, 250, 252, 0.95); backdrop-filter: blur(8px); z-index: 100; padding: 10px 0; margin-bottom: 15px; border-bottom: 1px solid var(--border); }
-        .sticky-header .card { margin-bottom: 0; display: flex; align-items: center; justify-content: space-between; padding: 10px 15px; }
-        
-        h1 { font-size: 1.2rem; margin-bottom: 5px; color: var(--text); }
-        .subtitle { color: var(--text-muted); font-size: 0.8rem; }
+        /* 統一卡片樣式 */
         .card { background: var(--card-bg); border-radius: 12px; padding: 15px; margin-bottom: 15px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); border: 1px solid var(--border); }
-        .card-title { font-size: 1rem; font-weight: bold; margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }
+        .card-title { font-size: 1.1rem; font-weight: bold; margin-bottom: 12px; display: flex; align-items: center; gap: 8px; color: var(--text); }
+        
+        /* Sticky Header 專用樣式 */
+        .sticky-header { position: sticky; top: 0; background: rgba(248, 250, 252, 0.95); backdrop-filter: blur(8px); z-index: 100; padding: 10px 0; margin-bottom: 15px; border-bottom: 1px solid var(--border); }
+        .sticky-header .card { margin-bottom: 0; display: flex; align-items: center; justify-content: space-between; }
+        .header-title-group { display: flex; flex-direction: column; justify-content: center; }
+        .header-title { font-size: 1.1rem; font-weight: bold; display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
+        .subtitle { color: var(--text-muted); font-size: 0.8rem; }
         
         input[type="text"], input[type="password"], textarea { width: 100%; padding: 12px; border: 1px solid var(--border); border-radius: 8px; font-size: 0.95rem; margin-bottom: 10px; font-family: inherit; }
         textarea { resize: vertical; min-height: 120px; font-family: monospace; }
@@ -34,7 +37,7 @@
         .btn-danger { background-color: var(--danger); color: white; }
         .btn-small { width: auto; padding: 6px 10px; font-size: 0.8rem; border-radius: 6px; }
         
-        .status-box { padding: 10px; border-radius: 8px; background-color: #f1f5f9; margin-top: 10px; font-size: 0.85rem; display: flex; align-items: center; gap: 10px; }
+        .status-box { padding: 10px; border-radius: 8px; background-color: #f1f5f9; margin-top: 5px; font-size: 0.75rem; display: flex; align-items: center; gap: 10px; }
         .status-dot { width: 10px; height: 10px; border-radius: 50%; background-color: var(--text-muted); flex-shrink: 0; }
         .status-dot.running { background-color: var(--warning); animation: pulse 1.5s infinite; }
         .status-dot.success { background-color: var(--success); }
@@ -47,7 +50,7 @@
         .error-list { font-size: 0.85rem; margin-bottom: 10px; white-space: pre-wrap; font-family: monospace; }
         
         details { margin-bottom: 15px; }
-        summary { cursor: pointer; font-weight: bold; padding: 10px; background: #f8fafc; border-radius: 8px; border: 1px solid var(--border); outline: none; }
+        summary { cursor: pointer; font-weight: bold; padding: 12px 15px; background: #f8fafc; border-radius: 8px; border: 1px solid var(--border); outline: none; display: flex; align-items: center; gap: 8px; }
     </style>
     
     <script>
@@ -72,7 +75,7 @@
             loadTokens(); 
             await loadDictionaries();
             if (currentToken) checkBuildStatus();
-            else updateStatus('build-status', '', '請先設定 Token');
+            else updateStatus('build-status', '', '等待操作');
         };
 
         // === 從遠端載入所有規則 ===
@@ -141,12 +144,12 @@
         function deleteToken(id) {
             if (!confirm('確定刪除？')) return;
             tokenList = tokenList.filter(t => t.id !== id);
-            if (tokenList.length > 0) { setActive(tokenList[0].id); } else { currentToken = ''; saveTokensToLocal(); renderTokens(); updateStatus('build-status', '', '請先設定 Token'); }
+            if (tokenList.length > 0) { setActive(tokenList[0].id); } else { currentToken = ''; saveTokensToLocal(); renderTokens(); updateStatus('build-status', '', '等待操作'); }
         }
         function copyToken(tokenStr) { navigator.clipboard.writeText(tokenStr).then(() => alert('已複製 Token')); }
         function renderTokens() {
             const listEl = document.getElementById('token-list');
-            listEl.innerHTML = tokenList.length === 0 ? '<div style="text-align:center;color:#999;font-size:0.8rem;">無 Token</div>' : '';
+            listEl.innerHTML = tokenList.length === 0 ? '<div style="text-align:center;color:#999;font-size:0.8rem; padding:10px;">無 Token</div>' : '';
             tokenList.forEach(t => {
                 const item = document.createElement('div');
                 item.style = "display:flex; justify-content:space-between; align-items:center; padding:8px 0; border-bottom:1px solid #eee;";
@@ -198,12 +201,12 @@
             if (!currentToken) return alert('請先設定 Token');
             const btn = document.getElementById('btn-trigger');
             btn.disabled = true; triggerTime = Date.now();
-            updateStatus('build-status', 'running', '正在發送打包指令...');
+            updateStatus('build-status', 'running', '發送指令...');
             try {
                 await githubAPI(`/repos/${OWNER}/${INFRA_REPO}/actions/workflows/${WORKFLOW_ID}/dispatches`, {
                     method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ref: 'main' })
                 });
-                updateStatus('build-status', 'running', '指令已發送，等待排隊...');
+                updateStatus('build-status', 'running', '等待排隊...');
                 if (pollInterval) clearInterval(pollInterval);
                 setTimeout(checkBuildStatus, 3000);
                 pollInterval = setInterval(checkBuildStatus, 8000);
@@ -219,16 +222,16 @@
                     const runTime = new Date(run.created_at).getTime();
                     const createdAt = new Date(run.created_at).toLocaleString('zh-TW', { timeZone: 'Asia/Hong_Kong' });
                     if (triggerTime > 0 && runTime < triggerTime - 10000) {
-                        updateStatus('build-status', 'running', '排隊建立任務中...'); return;
+                        updateStatus('build-status', 'running', '排隊中...'); return;
                     }
                     if (run.status === 'in_progress' || run.status === 'queued') {
-                        updateStatus('build-status', 'running', `打包進行中... (始於 ${createdAt})`);
+                        updateStatus('build-status', 'running', `打包中...`);
                     } else if (run.conclusion === 'success') {
-                        updateStatus('build-status', 'success', `上次打包成功 (${createdAt})`);
+                        updateStatus('build-status', 'success', `上次成功 (${createdAt})`);
                         document.getElementById('btn-trigger').disabled = false; triggerTime = 0;
                         if (pollInterval) { clearInterval(pollInterval); pollInterval = null; }
                     } else {
-                        updateStatus('build-status', 'failure', `上次打包失敗 (${createdAt})`);
+                        updateStatus('build-status', 'failure', `上次失敗 (${createdAt})`);
                         document.getElementById('btn-trigger').disabled = false; triggerTime = 0;
                         if (pollInterval) { clearInterval(pollInterval); pollInterval = null; }
                     }
@@ -289,9 +292,7 @@
 
             const isCodeFile = filePath.endsWith('.js') || filePath.endsWith('.css') || filePath.endsWith('.html') || filePath.endsWith('.py') || filePath.endsWith('.sh');
 
-            // 1. 拔除程式碼區塊
             let cleanContent = content.replace(/```[\s\S]*?```/g, '').replace(/~~~[\s\S]*?~~~/g, '');
-            // 2. 拔除引號與反引號內的定義 (防自指陷阱)
             cleanContent = cleanContent.replace(/「[^」]*」/g, '').replace(/`[^`]*`/g, '');
             
             if (specificRule.check_forbidden_words !== false && !isRecordFile && !isCodeFile) {
@@ -329,6 +330,7 @@
             document.getElementById('success-panel').style.display = 'none';
             document.getElementById('input-area').style.display = 'block';
             document.getElementById('btn-publish').style.display = 'none';
+            document.getElementById('btn-reset-next').style.display = 'none';
             
             const btn = document.getElementById('btn-publish');
             btn.disabled = false; 
@@ -343,7 +345,7 @@
         async function publishFile() {
             if (!currentToken) return alert('請先設定 Token');
             const btn = document.getElementById('btn-publish');
-            btn.disabled = true; btn.textContent = '正在取得原檔...';
+            btn.disabled = true; btn.textContent = '處理中...';
             
             let content = document.getElementById('file-input').value;
             const repo = document.getElementById('target-repo').value;
@@ -362,7 +364,6 @@
                     if (!e.message.includes('404')) throw e;
                 }
 
-                btn.textContent = '正在替換與檢查...';
                 let finalContent = content;
 
                 const patchRegex = /<<<<<<< OLD\n([\s\S]*?)\n=======\n([\s\S]*?)\n>>>>>>> NEW/;
@@ -372,7 +373,7 @@
                     const oldStr = patchMatch[1];
                     const newStr = patchMatch[2];
                     if (!originalContent.includes(oldStr)) {
-                        throw new Error(`找不到要替換的目標字串，可能檔案已被修改。\n目標：${oldStr.substring(0, 20)}...`);
+                        throw new Error(`找不到要替換的目標字串。`);
                     }
                     finalContent = originalContent.replace(oldStr, newStr);
                 } 
@@ -391,25 +392,17 @@
                     finalContent = base + "\n\n" + appendContent;
                 }
 
-                btn.textContent = '正在寫入倉庫...';
                 const base64Content = btoa(unescape(encodeURIComponent(finalContent)));
 
-                const body = {
-                    message: `Update ${filePath} via Console`,
-                    content: base64Content,
-                };
+                const body = { message: `Update ${filePath} via Console`, content: base64Content };
                 if (sha) body.sha = sha;
 
                 await githubAPI(`/repos/${OWNER}/${repo}/contents/${filePath}`, {
-                    method: 'PUT',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(body)
+                    method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body)
                 });
 
                 document.getElementById('success-message').innerHTML = `🎉 已成功寫入：<br><b>${repo}/${filePath}</b>`;
                 btn.style.display = 'none';
-                
-                // 顯示清空並繼續的按鈕
                 document.getElementById('btn-reset-next').style.display = 'block';
             } catch (error) {
                 alert(`發布失敗：${error.message}`);
@@ -433,24 +426,19 @@
 
             try {
                 await githubAPI(`/user/repos`, {
-                    method: 'POST',
-                    body: JSON.stringify({ name: name, private: false, auto_init: true })
+                    method: 'POST', body: JSON.stringify({ name: name, private: false, auto_init: true })
                 });
 
                 await new Promise(r => setTimeout(r, 2000));
                 const v = Math.floor(Date.now() / 1000).toString();
 
                 const metaContent = JSON.stringify({
-                    domain: domain,
-                    pkg_no: pkgNo,
-                    code: code,
-                    display: display,
+                    domain: domain, pkg_no: pkgNo, code: code, display: display,
                     _EOF: { F: `${name}/meta.json`, V: v, W: `init-${pkgNo}#1` }
                 }, null, 2);
                 
                 await githubAPI(`/repos/${OWNER}/${name}/contents/meta.json`, {
-                    method: 'PUT',
-                    body: JSON.stringify({ message: 'Init meta.json', content: btoa(unescape(encodeURIComponent(metaContent))) })
+                    method: 'PUT', body: JSON.stringify({ message: 'Init meta.json', content: btoa(unescape(encodeURIComponent(metaContent))) })
                 });
 
                 const wfContent = `# WF-HANDOFF (${display})\n\n## 專案基礎資訊\n\n- 專案編號：${pkgNo}\n- 領域代碼：${domain}\n\n/* ═══ EOF ═══\nF: AI-General/docs/p${pkgNo}/WF-HANDOFF.md\nV: ${v}\nW: init-${pkgNo}#1\n═══ */`;
@@ -484,15 +472,16 @@
 <body>
 <div class="container">
     
+    <!-- 頂部導航列 -->
     <div class="sticky-header">
         <div class="card">
-            <div>
-                <h1>🚀 AI 控制台</h1>
+            <div class="header-title-group">
+                <div class="header-title">🚀 AI 控制台</div>
                 <div class="subtitle">極簡發布與打包中心</div>
             </div>
             <div style="width: 120px;">
-                <button class="btn-primary" id="btn-trigger" onclick="triggerBuild()" style="padding: 8px;">▶️ 打包</button>
-                <div class="status-box" style="padding: 5px; font-size: 0.7rem; margin-top: 5px;">
+                <button class="btn-primary" id="btn-trigger" onclick="triggerBuild()" style="padding: 8px; font-size:0.9rem;">▶️ 打包</button>
+                <div class="status-box">
                     <div class="status-dot" id="build-status-dot"></div>
                     <div id="build-status-text">等待操作</div>
                 </div>
@@ -563,6 +552,6 @@
 </html>
 <!-- ═══ EOF ═══
 F: AI-infra/index.html
-V: 1792909300
-W: ai-system-003#43
+V: 1792909400
+W: ai-system-003#44
 ═══ -->
