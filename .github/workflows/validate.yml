@@ -1,0 +1,71 @@
+# ============================================
+# validate.yml — 中央可重用檢查工作流 (Reusable Workflow)
+# 用途：供各倉庫呼叫，執行增量格式與內容檢查
+# ============================================
+
+name: Reusable Validation Workflow
+
+on:
+  workflow_call:
+    secrets:
+      CROSS_REPO_PAT:
+        required: true
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout caller repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2 # 需要前一次 commit 來計算 git diff
+
+      - name: Checkout AI-infra (for scripts)
+        uses: actions/checkout@v4
+        with:
+          repository: tlee20860-dotcom/AI-infra
+          token: ${{ secrets.CROSS_REPO_PAT }}
+          path: AI-infra
+
+      - name: Checkout AI-kernel (for validate-config.json and forbidden_words.txt)
+        uses: actions/checkout@v4
+        with:
+          repository: tlee20860-dotcom/AI-kernel
+          token: ${{ secrets.CROSS_REPO_PAT }}
+          path: AI-kernel
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Install Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install zhconv
+
+      - name: Run Validation Script
+        run: |
+          # 將 AI-infra 的腳本複製到根目錄以便執行
+          cp AI-infra/.github/scripts/validate_delivery.py .
+          
+          # 設定嚴格模式，有錯就中斷
+          export VALIDATE_MODE=strict
+          
+          python3 validate_delivery.py
+
+      - name: Success Notification
+        if: success()
+        run: echo "✅ 檢查通過，源檔純淨。"
+        
+      - name: Failure Notification
+        if: failure()
+        run: |
+          echo "❌ 檢查失敗，請查看上方日誌。"
+          exit 1
+
+# ═══ EOF ═══
+# F: AI-infra/.github/workflows/validate.yml
+# V: 1792905900
+# W: ai-system-003#8
+# ═══ EOF ═══
