@@ -346,10 +346,18 @@
                     header = (rules.error_header_format || "📄 檔案：{path}\n------------------------\n").replace("{path}", fullPath);
                 }
                 document.getElementById('error-list').textContent = header + errors.join('\n');
+
+                // 如果成功抓到 repo 與 filePath，允許強制發布
+                if (repo && filePath) {
+                    document.getElementById('btn-force-publish').style.display = 'block';
+                } else {
+                    document.getElementById('btn-force-publish').style.display = 'none';
+                }
             } else {
                 successPanel.style.display = 'block';
                 document.getElementById('success-message').textContent = '✅ 體檢通過！請點擊下方按鈕發布。';
                 document.getElementById('btn-publish').style.display = 'block';
+                document.getElementById('btn-force-publish').style.display = 'none';
             }
         }
 
