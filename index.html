@@ -140,11 +140,19 @@
                 'Cache-Control': 'no-cache',
                 ...options.headers 
             };
-            const res = await fetch(`https://api.github.com${url}?t=${Date.now()}`, { ...options, headers });
+            
+            let res;
+            try {
+                res = await fetch(`https://api.github.com${url}?t=${Date.now()}`, { ...options, headers });
+            } catch (fetchError) {
+                throw new Error("無法連線至 GitHub（請檢查手機網路或 Token 權限）");
+            }
+
             if (!res.ok) {
                 let errMsg = `API 錯誤: ${res.status}`;
                 try { const errData = await res.json(); if (errData.message) errMsg += ` - ${errData.message}`; } catch(e) {}
                 if (res.status === 401) throw new Error('Token 無效或過期');
+                if (res.status === 403) throw new Error('Token 權限不足（需 Actions 讀取權限）');
                 if (res.status === 404) throw new Error('找不到資源（可能路徑錯誤或無權限）');
                 if (res.status === 409) throw new Error('檔案衝突，請重試');
                 throw new Error(errMsg);
@@ -227,7 +235,6 @@
                 } else {
                     const repo = pathParts[0];
                     const filePath = pathParts.slice(1).join('/');
-                    // 簡單的白名單檢查，實際可更靈活
                     if (!['AI-kernel', 'AI-General', 'AI-WA-UPWO', 'AI-WEB-APP-Family', 'AI-OS'].includes(repo)) {
                         errors.push(`未知的倉庫目標：${repo}。請確認是否正確。`);
                     }
@@ -282,7 +289,6 @@
             const filePath = document.getElementById('target-file-path').value;
 
             try {
-                // 1. 取得現有檔案內容與 SHA
                 let sha = null;
                 let originalContent = "";
                 try {
@@ -295,10 +301,8 @@
                     if (!e.message.includes('404')) throw e;
                 }
 
-                // 2. 處理替換或追加邏輯
                 let finalContent = content;
 
-                // 檢查是否為替換模式
                 const patchMatch = content.match(/<<<<<<< OLD\n([\s\S]*?)\n=======\n([\s\S]*?)\n>>>>>>> NEW/);
                 if (patchMatch && originalContent) {
                     const oldStr = patchMatch[1];
@@ -308,7 +312,6 @@
                     }
                     finalContent = originalContent.replace(oldStr, newStr);
                 } 
-                // 檢查是否為追加模式
                 else if (content.includes("[APPEND]") && originalContent) {
                     let base = originalContent;
                     const eofIndex = base.lastIndexOf("/* ═══ EOF ═══");
@@ -324,7 +327,6 @@
                     finalContent = base + "\n\n" + appendContent;
                 }
 
-                // 3. 轉 Base64 並 PUT 發布
                 const base64Content = btoa(unescape(encodeURIComponent(finalContent)));
 
                 const body = {
@@ -491,6 +493,6 @@
 </html>
 <!-- ═══ EOF ═══
 F: AI-infra/index.html
-V: 1792906500
-W: ai-system-003#14
+V: 1792906600
+W: ai-system-003#15
 ═══ -->
