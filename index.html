@@ -74,9 +74,10 @@
                 else updateStatus('build-status', '', '請先設定 Token');
             });
 
-            if ('serviceWorker' in navigator) {
-                navigator.serviceWorker.register('sw.js').catch(err => console.log('SW fail:', err));
-            }
+            // 暫時關閉 sw.js 註冊，避免干擾
+            // if ('serviceWorker' in navigator) {
+            //     navigator.serviceWorker.register('sw.js').catch(err => console.log('SW fail:', err));
+            // }
         };
 
         // === 從 AI-kernel 載入字典 ===
@@ -113,7 +114,7 @@
                     tokenList = JSON.parse(stored);
                     if (tokenList.length > 0) {
                         const active = tokenList.find(t => t.isActive);
-                        currentToken = active ? active.token : tokenList[0].token;
+                        currentToken = active ? active.token.trim() : tokenList[0].token.trim();
                     }
                 } catch (e) { console.error(e); }
             }
@@ -132,7 +133,7 @@
             checkBuildStatus();
         }
         function setActive(id) {
-            tokenList.forEach(t => { t.isActive = (t.id === id); if (t.isActive) currentToken = t.token; });
+            tokenList.forEach(t => { t.isActive = (t.id === id); if (t.isActive) currentToken = t.token.trim(); });
             saveTokensToLocal(); renderTokens(); checkBuildStatus();
         }
         function deleteToken(id) {
@@ -159,13 +160,13 @@
             });
         }
 
-        // === GitHub API ===
+        // === GitHub API (終極防呆版) ===
         async function githubAPI(url, options = {}) {
             if (!currentToken) throw new Error("未啟用 GitHub Token");
+            // 移除 Cache-Control，避免觸發 CORS 預檢失敗
             const headers = { 
                 'Accept': 'application/vnd.github.v3+json', 
-                'Authorization': `token ${currentToken}`, 
-                'Cache-Control': 'no-cache',
+                'Authorization': `token ${currentToken.trim()}`, 
                 ...options.headers 
             };
             
@@ -173,14 +174,15 @@
             try {
                 res = await fetch(`https://api.github.com${url}?t=${Date.now()}`, { ...options, headers });
             } catch (fetchError) {
-                throw new Error("無法連線至 GitHub（請檢查手機網路或 Token 權限）");
+                console.error("Fetch Error Detail:", fetchError);
+                throw new Error("無法連線至 GitHub（請確認 Token 無多餘空白，或關閉廣告攔截器）");
             }
 
             if (!res.ok) {
                 let errMsg = `API 錯誤: ${res.status}`;
                 try { const errData = await res.json(); if (errData.message) errMsg += ` - ${errData.message}`; } catch(e) {}
                 if (res.status === 401) throw new Error('Token 無效或過期');
-                if (res.status === 403) throw new Error('Token 權限不足（需 Actions 讀取權限）');
+                if (res.status === 403) throw new Error('Token 權限不足');
                 if (res.status === 404) throw new Error('找不到資源（可能路徑錯誤或無權限）');
                 if (res.status === 409) throw new Error('檔案衝突，請重試');
                 throw new Error(errMsg);
@@ -526,6 +528,6 @@
 </html>
 <!-- ═══ EOF ═══
 F: AI-infra/index.html
-V: 1792907000
-W: ai-system-003#19
+V: 1792907100
+W: ai-system-003#21
 ═══ -->
