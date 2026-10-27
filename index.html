@@ -61,21 +61,49 @@
         let triggerTime = 0;
         let pollInterval = null;
 
-        // 簡易繁簡與禁用詞對照表 (用於前端快速攔截)
-        const FORBIDDEN_WORDS = ["略", "保留原樣", "同上", "與前相同", "內容不變", "（省略）", "（程式碼略）", "...", "…", "參考前文", "其餘同前"];
-        const SIMPLIFIED_CHARS = ["体", "实", "发", "档", "权", "检", "查", "网", "页", "库", "选", "项", "标", "准", "记", "录", "历", "史", "进", "化", "设", "计", "对", "应", "当", "总", "结", "归", "纳", "务", "动", "态", "统", "过", "将", "来", "并", "且"];
+        // 動態載入的規則 (不再寫死)
+        let globalForbiddenWords = [];
+        let globalSimplifiedChars = [];
 
-        window.onload = () => {
+        window.onload = async () => {
             loadTokens(); 
-            if (currentToken) {
-                checkBuildStatus();
-            } else {
-                updateStatus('build-status', '', '請先設定 Token');
-            }
+            
+            // 非同步載入字典，避免卡住畫面
+            loadDictionaries().then(() => {
+                if (currentToken) checkBuildStatus();
+                else updateStatus('build-status', '', '請先設定 Token');
+            });
+
             if ('serviceWorker' in navigator) {
                 navigator.serviceWorker.register('sw.js').catch(err => console.log('SW fail:', err));
             }
         };
+
+        // === 從 AI-kernel 載入字典 ===
+        async function loadDictionaries() {
+            try {
+                // 1. 讀取禁用詞 (純文字)
+                const txtUrl = `https://raw.githubusercontent.com/${OWNER}/AI-kernel/main/docs/r-rules/forbidden_words.txt?t=${Date.now()}`;
+                const txtRes = await fetch(txtUrl);
+                if (txtRes.ok) {
+                    const text = await txtRes.text();
+                    globalForbiddenWords = text.split('\n').map(w => w.trim()).filter(w => w && !w.startsWith('#'));
+                }
+                
+                // 2. 讀取簡體字 (從 JSON 讀取陣列)
+                const jsonUrl = `https://raw.githubusercontent.com/${OWNER}/AI-kernel/main/docs/r-rules/validate-config.json?t=${Date.now()}`;
+                const jsonRes = await fetch(jsonUrl);
+                if (jsonRes.ok) {
+                    const data = await jsonRes.json();
+                    if (data.simplified_chars) {
+                        globalSimplifiedChars = data.simplified_chars;
+                    }
+                }
+                console.log("✅ 字典載入成功", { words: globalForbiddenWords.length, chars: globalSimplifiedChars.length });
+            } catch (e) {
+                console.warn("⚠️ 無法載入遠端字典，前端檢查將降級（只檢查路徑）。", e);
+            }
+        }
 
         // === Token 管理 ===
         function loadTokens() {
@@ -244,15 +272,20 @@
                 }
             }
 
-            // 2. 簡體字與禁用詞掃描 (不掃描程式碼區塊)
+            // 2. 使用動態載入的字典進行掃描 (如果載入失敗則跳過)
             const cleanContent = content.replace(/```[\s\S]*?```/g, '').replace(/~~~[\s\S]*?~~~/g, '');
             
-            FORBIDDEN_WORDS.forEach(word => {
-                if (cleanContent.includes(word)) errors.push(`發現禁用詞彙：「${word}」`);
-            });
-            SIMPLIFIED_CHARS.forEach(word => {
-                if (cleanContent.includes(word)) errors.push(`發現簡體字：「${word}」`);
-            });
+            if (globalForbiddenWords.length > 0) {
+                globalForbiddenWords.forEach(word => {
+                    if (cleanContent.includes(word)) errors.push(`發現禁用詞彙：「${word}」`);
+                });
+            }
+            
+            if (globalSimplifiedChars.length > 0) {
+                globalSimplifiedChars.forEach(word => {
+                    if (cleanContent.includes(word)) errors.push(`發現簡體字：「${word}」`);
+                });
+            }
 
             // 顯示結果
             if (errors.length > 0) {
@@ -493,6 +526,6 @@
 </html>
 <!-- ═══ EOF ═══
 F: AI-infra/index.html
-V: 1792906600
-W: ai-system-003#15
+V: 1792907000
+W: ai-system-003#19
 ═══ -->
