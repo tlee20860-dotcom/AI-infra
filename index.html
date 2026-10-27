@@ -66,7 +66,12 @@
         const SIMPLIFIED_CHARS = ["体", "实", "发", "档", "权", "检", "查", "网", "页", "库", "选", "项", "标", "准", "记", "录", "历", "史", "进", "化", "设", "计", "对", "应", "当", "总", "结", "归", "纳", "务", "动", "态", "统", "过", "将", "来", "并", "且"];
 
         window.onload = () => {
-            loadTokens(); checkBuildStatus();
+            loadTokens(); 
+            if (currentToken) {
+                checkBuildStatus();
+            } else {
+                updateStatus('build-status', '', '請先設定 Token');
+            }
             if ('serviceWorker' in navigator) {
                 navigator.serviceWorker.register('sw.js').catch(err => console.log('SW fail:', err));
             }
@@ -96,15 +101,16 @@
             if (newToken.isActive) currentToken = newToken.token;
             document.getElementById('new-token-name').value = ''; document.getElementById('new-token-value').value = '';
             renderTokens();
+            checkBuildStatus();
         }
         function setActive(id) {
             tokenList.forEach(t => { t.isActive = (t.id === id); if (t.isActive) currentToken = t.token; });
-            saveTokensToLocal(); renderTokens();
+            saveTokensToLocal(); renderTokens(); checkBuildStatus();
         }
         function deleteToken(id) {
             if (!confirm('確定刪除？')) return;
             tokenList = tokenList.filter(t => t.id !== id);
-            if (tokenList.length > 0) { setActive(tokenList[0].id); } else { currentToken = ''; saveTokensToLocal(); renderTokens(); }
+            if (tokenList.length > 0) { setActive(tokenList[0].id); } else { currentToken = ''; saveTokensToLocal(); renderTokens(); updateStatus('build-status', '', '請先設定 Token'); }
         }
         function copyToken(tokenStr) { navigator.clipboard.writeText(tokenStr).then(() => alert('已複製 Token')); }
         function renderTokens() {
@@ -148,6 +154,7 @@
 
         // === 打包 ===
         async function triggerBuild() {
+            if (!currentToken) return alert('請先設定 Token');
             const btn = document.getElementById('btn-trigger');
             btn.disabled = true; triggerTime = Date.now();
             updateStatus('build-status', 'running', '正在發送打包指令...');
@@ -163,6 +170,7 @@
         }
 
         async function checkBuildStatus() {
+            if (!currentToken) return;
             try {
                 const data = await githubAPI(`/repos/${OWNER}/${INFRA_REPO}/actions/workflows/${WORKFLOW_ID}/runs?per_page=1`);
                 if (data.workflow_runs && data.workflow_runs.length > 0) {
@@ -219,6 +227,7 @@
                 } else {
                     const repo = pathParts[0];
                     const filePath = pathParts.slice(1).join('/');
+                    // 簡單的白名單檢查，實際可更靈活
                     if (!['AI-kernel', 'AI-General', 'AI-WA-UPWO', 'AI-WEB-APP-Family', 'AI-OS'].includes(repo)) {
                         errors.push(`未知的倉庫目標：${repo}。請確認是否正確。`);
                     }
@@ -264,6 +273,7 @@
         }
 
         async function publishFile() {
+            if (!currentToken) return alert('請先設定 Token');
             const btn = document.getElementById('btn-publish');
             btn.disabled = true; btn.textContent = '處理中...';
             
@@ -279,7 +289,6 @@
                     const existing = await githubAPI(`/repos/${OWNER}/${repo}/contents/${filePath}`);
                     if (existing && existing.sha) {
                         sha = existing.sha;
-                        // 解碼 Base64 (處理中文)
                         originalContent = decodeURIComponent(escape(atob(existing.content.replace(/\n/g, ''))));
                     }
                 } catch (e) {
@@ -289,7 +298,7 @@
                 // 2. 處理替換或追加邏輯
                 let finalContent = content;
 
-                // 檢查是否為替換模式 (AI 給了舊字串)
+                // 檢查是否為替換模式
                 const patchMatch = content.match(/<<<<<<< OLD\n([\s\S]*?)\n=======\n([\s\S]*?)\n>>>>>>> NEW/);
                 if (patchMatch && originalContent) {
                     const oldStr = patchMatch[1];
@@ -299,12 +308,10 @@
                     }
                     finalContent = originalContent.replace(oldStr, newStr);
                 } 
-                // 檢查是否為追加模式 (內容極短且有 [APPEND] 標記)
+                // 檢查是否為追加模式
                 else if (content.includes("[APPEND]") && originalContent) {
-                    // 拔除舊檔尾的 EOF
                     let base = originalContent;
                     const eofIndex = base.lastIndexOf("/* ═══ EOF ═══");
-                    const altEofIndex = base.lastIndexOf("/* ═══ EOF ═══");
                     const mdEofIndex = base.lastIndexOf("F:");
                     
                     if (eofIndex > 0) base = base.substring(0, eofIndex).trim();
@@ -313,7 +320,6 @@
                         if (lineStart > 0) base = base.substring(0, lineStart).trim();
                     }
 
-                    // AI 提供的內容通常已包含新 EOF，直接拼接
                     let appendContent = content.replace("[APPEND]", "").trim();
                     finalContent = base + "\n\n" + appendContent;
                 }
@@ -343,6 +349,7 @@
 
         // === 一鍵建庫 ===
         async function createNewProject() {
+            if (!currentToken) return alert('請先設定 Token');
             const name = document.getElementById('new-repo-name').value.trim();
             const domain = document.getElementById('new-repo-domain').value;
             const pkgNo = document.getElementById('new-repo-pkg').value.trim();
@@ -355,7 +362,6 @@
             btn.disabled = true; btn.textContent = '建立中...';
 
             try {
-                // 1. 建立新倉庫 (auto_init: true 避免空庫問題)
                 await githubAPI(`/user/repos`, {
                     method: 'POST',
                     body: JSON.stringify({ name: name, private: false, auto_init: true })
@@ -364,7 +370,6 @@
                 await new Promise(r => setTimeout(r, 2000));
                 const v = Math.floor(Date.now() / 1000).toString();
 
-                // 2. 寫入 meta.json
                 const metaContent = JSON.stringify({
                     domain: domain,
                     pkg_no: pkgNo,
@@ -378,7 +383,6 @@
                     body: JSON.stringify({ message: 'Init meta.json', content: btoa(unescape(encodeURIComponent(metaContent))) })
                 });
 
-                // 3. 寫入 AI-General 的 WF-HANDOFF.md
                 const wfContent = `# WF-HANDOFF (${display})\n\n## 專案基礎資訊\n\n- 專案編號：${pkgNo}\n- 領域代碼：${domain}\n\n/* ═══ EOF ═══\nF: AI-General/docs/p${pkgNo}/WF-HANDOFF.md\nV: ${v}\nW: init-${pkgNo}#1\n═══ */`;
                 
                 let wfSha = null;
@@ -485,8 +489,8 @@
 </div>
 </body>
 </html>
-/* ═══ EOF ═══
+<!-- ═══ EOF ═══
 F: AI-infra/index.html
-V: 1792906200
-W: ai-system-003#11
-═══ */
+V: 1792906500
+W: ai-system-003#14
+═══ -->
