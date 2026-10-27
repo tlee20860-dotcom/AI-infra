@@ -442,7 +442,10 @@
                         originalContent = decodeURIComponent(escape(atob(existing.content.replace(/\n/g, ''))));
                     }
                 } catch (e) {
-                    if (!e.message.includes('404')) throw e;
+                    // 修正：必須同時攔截 404 與「找不到資源」，才能允許新增檔案
+                    if (!e.message.includes('404') && !e.message.includes('找不到資源')) {
+                        throw e;
+                    }
                 }
 
                 let finalContent = content;
