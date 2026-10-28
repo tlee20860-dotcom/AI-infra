@@ -387,6 +387,15 @@ jobs:
             echo "" >> "$OUTPUT"
           fi
 
+          # 打包體系驗證配置（validate_delivery.py 依賴）
+          for cfg in "AI-kernel/docs/r-rules/validate-config.json" "AI-kernel/docs/r-rules/forbidden_words.txt"; do
+            if [ -f "$cfg" ]; then
+              echo "### 📄 檔案：$cfg" >> "$OUTPUT"
+              bash .github/workflows/append_file.sh "$cfg" "$OUTPUT" || true
+              echo "" >> "$OUTPUT"
+            fi
+          done
+
       - name: "Step 9.3: 生成歷史檔案包 (24-HISTORY.md)"
         run: |
           OUTPUT="build-repo/24-HISTORY.md"
@@ -459,6 +468,19 @@ jobs:
           done
           echo "" >> "$OUTPUT"
 
+          # 2.5 體系驗證配置 (AI-kernel)
+          echo "## 🔧 體系驗證配置 (AI-kernel)" >> "$OUTPUT"
+          echo "| 目錄/路徑 | 檔案名稱 |" >> "$OUTPUT"
+          echo "|---|---|" >> "$OUTPUT"
+          for cfg in "AI-kernel/docs/r-rules/validate-config.json" "AI-kernel/docs/r-rules/forbidden_words.txt"; do
+            if [ -f "$cfg" ]; then
+              DIR_NAME=$(dirname "$cfg")
+              FILE_NAME=$(basename "$cfg")
+              echo "| $DIR_NAME | $FILE_NAME |" >> "$OUTPUT"
+            fi
+          done
+          echo "" >> "$OUTPUT"
+
           # 3. 專案源碼索引
           echo "## 📦 專案源碼檔案樹 (external)" >> "$OUTPUT"
           echo "| 專案倉庫 | 檔案路徑 |" >> "$OUTPUT"
@@ -524,6 +546,6 @@ jobs:
 
 # ═══ EOF ═══
 # F: AI-infra/.github/workflows/setup-structure.yml
-# V: 1792911500
-# W: ai-system-004
+# V: 1792913000
+# W: ai-system-005
 # ═══ EOF ═══
