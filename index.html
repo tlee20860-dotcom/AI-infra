@@ -279,7 +279,6 @@
                     
                     if (run.status === 'in_progress' || run.status === 'queued') {
                         updateStatus('deploy-status', 'running', `部署中...`);
-                        // 如果正在跑，順便啟動輪詢
                         if (deployPollInterval) clearInterval(deployPollInterval);
                         deployPollInterval = setInterval(() => checkDeployStatus(repoName, workflow), 8000);
                     } else if (run.conclusion === 'success') {
@@ -291,7 +290,6 @@
                     updateStatus('deploy-status', '', '尚無部署紀錄');
                 }
             } catch (error) {
-                // 404 通常代表沒有這個 workflow，或者沒有跑過任何一次
                 if (error.message.includes('404') || error.message.includes('找不到資源')) {
                     updateStatus('deploy-status', '', '尚無部署紀錄');
                 } else {
@@ -378,12 +376,13 @@
                 pathMatch = content.match(/(?:F:|"F":)\s*"?([^\s"\n]+)"?/);
             }
 
-            // 防呆：如果是 PARTIAL_REPLACE，NEW 區塊必須包含 EOF
+            // 防呆：如果是 PARTIAL_REPLACE，NEW 區塊必須包含 EOF（支援 # 註解格式）
             const patchMatch = content.match(/<<<<<<< OLD\n([\s\S]*?)\n=======\n([\s\S]*?)\n>>>>>>> NEW/);
             if (patchMatch) {
                 const newStr = patchMatch[2];
-                if (!newStr.match(/F:\s*([^\s\n]+)\s*\nV:\s*\d+\s*\nW:\s*[^\s\n]+/)) {
-                    errors.push("局部替換的 NEW 區塊缺少 F/V/W 標記。這會導致原檔的 EOF 失效，請要求 AI 補齊後重新發布。");
+                const eofRegex = /(?:#\s*|\/\/\s*|\/\*\s*|<!--\s*)*F:\s*([^\s\n]+)\s*\n(?:#\s*|\/\/\s*|\/\*\s*|<!--\s*)*V:\s*\d+\s*\n(?:#\s*|\/\/\s*|\/\*\s*|<!--\s*)*W:\s*[^\s\n]+/;
+                if (!eofRegex.test(newStr)) {
+                    errors.push("局部替換的 NEW 區塊缺少 F/V/W 標記。這會導致無法追蹤修改者，請要求 AI 補齊後重新發布。");
                 }
             }
             
@@ -776,6 +775,6 @@
 </html>
 <!-- ═══ EOF ═══
 F: AI-infra/index.html
-V: 1792910900
+V: 1792911200
 W: ai-system-004
 ═══ -->
