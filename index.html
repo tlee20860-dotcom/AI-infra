@@ -277,6 +277,16 @@
                 pathMatch = content.match(/(?:F:|"F":)\s*"?([^\s"\n]+)"?/);
             }
             
+            const patchMatch = content.match(/<<<<<<< OLD\n([\s\S]*?)\n=======\n([\s\S]*?)\n>>>>>>> NEW/);
+            if (patchMatch) {
+                const oldStr = patchMatch[1];
+                const newStr = patchMatch[2];
+                // 如果舊字串包含 EOF，但新字串沒有，直接報錯
+                if (oldStr.includes('EOF') && !newStr.includes('EOF')) {
+                    errors.push("局部替換的 NEW 區塊缺少 EOF (F/V/W)。這會導致原檔失去 EOF，請要求 AI 補齊。");
+                }
+            }
+
             if (!pathMatch) {
                 errors.push("找不到 F: 路徑標記。請確認 AI 是否漏寫 EOF。");
             } else {
