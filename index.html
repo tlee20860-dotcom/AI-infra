@@ -476,6 +476,11 @@
                     finalContent = base + "\n\n" + appendContent;
                 }
 
+                // 終極防呆：檢查最終拼裝後的內容是否包含完整的 EOF (F, V, W)
+                if (!finalContent.match(/F:\s*([^\s\n]+)\s*\nV:\s*\d+\s*\nW:\s*[^\s\n]+/)) {
+                    throw new Error(`發布失敗：替換後的檔案缺少 EOF (F/V/W)。請要求 AI 補齊後重新發布。`);
+                }
+
                 const base64Content = btoa(unescape(encodeURIComponent(finalContent)));
 
                 const body = { message: `Update ${filePath} via Console`, content: base64Content };
