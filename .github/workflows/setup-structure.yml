@@ -347,12 +347,6 @@ jobs:
                   if [ -f "$f" ]; then bash "../../.github/workflows/append_file.sh" "$f" "../../$OUTPUT_CODE" || true; fi
                 done
               ) || true
-
-# ═══ EOF ═══
-# F: AI-infra/.github/workflows/setup-structure.yml
-# V: 1792911100
-# W: ai-system-004
-# ═══ EOF ═══
             else
               echo "⏭️ 找不到專案源碼 external/${SAFE_NAME}，跳過 ${PKG_NO}-Code.md 生成。"
             fi
@@ -530,6 +524,6 @@ jobs:
 
 # ═══ EOF ═══
 # F: AI-infra/.github/workflows/setup-structure.yml
-# V: 1792909100
+# V: 1792911500
 # W: ai-system-004
 # ═══ EOF ═══
