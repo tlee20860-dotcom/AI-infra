@@ -79,8 +79,13 @@
         window.onload = async () => {
             loadTokens(); 
             await loadDictionaries();
-            if (currentToken) checkBuildStatus();
-            else updateStatus('build-status', '', '等待操作');
+            if (currentToken) {
+                checkBuildStatus();
+                checkLatestDeployStatus(); // 載入時自動查詢最後一次部署狀態
+            } else {
+                updateStatus('build-status', '', '等待操作');
+                updateStatus('deploy-status', '', '等待操作');
+            }
 
             if ('serviceWorker' in navigator) {
                 navigator.serviceWorker.register('sw.js').catch(err => console.log('SW fail:', err));
@@ -153,7 +158,7 @@
         }
         function setActive(id) {
             tokenList.forEach(t => { t.isActive = (t.id === id); if (t.isActive) currentToken = t.token.trim(); });
-            saveTokensToLocal(); renderTokens(); checkBuildStatus();
+            saveTokensToLocal(); renderTokens(); checkBuildStatus(); checkLatestDeployStatus();
         }
         function deleteToken(id) {
             if (!confirm('確定刪除？')) return;
@@ -259,6 +264,42 @@
             if(dot) dot.className = `status-dot ${status}`; if(text) text.textContent = msg;
         }
 
+        // 切換專案時，查詢該專案最後一次部署狀態
+        async function checkLatestDeployStatus() {
+            if (!currentToken) return;
+            const repoName = document.getElementById('deploy-repo-select').value;
+            const workflow = document.getElementById('deploy-workflow').value.trim() || 'deploy.yml';
+            if (!repoName) return;
+
+            try {
+                const data = await githubAPI(`/repos/${OWNER}/${repoName}/actions/workflows/${workflow}/runs?per_page=1`);
+                if (data.workflow_runs && data.workflow_runs.length > 0) {
+                    const run = data.workflow_runs[0];
+                    const createdAt = new Date(run.created_at).toLocaleString('zh-TW', { timeZone: 'Asia/Hong_Kong' });
+                    
+                    if (run.status === 'in_progress' || run.status === 'queued') {
+                        updateStatus('deploy-status', 'running', `部署中...`);
+                        // 如果正在跑，順便啟動輪詢
+                        if (deployPollInterval) clearInterval(deployPollInterval);
+                        deployPollInterval = setInterval(() => checkDeployStatus(repoName, workflow), 8000);
+                    } else if (run.conclusion === 'success') {
+                        updateStatus('deploy-status', 'success', `上次成功 (${createdAt})`);
+                    } else {
+                        updateStatus('deploy-status', 'failure', `上次失敗 (${createdAt})`);
+                    }
+                } else {
+                    updateStatus('deploy-status', '', '尚無部署紀錄');
+                }
+            } catch (error) {
+                // 404 通常代表沒有這個 workflow，或者沒有跑過任何一次
+                if (error.message.includes('404') || error.message.includes('找不到資源')) {
+                    updateStatus('deploy-status', '', '尚無部署紀錄');
+                } else {
+                    updateStatus('deploy-status', 'failure', '狀態查詢失敗');
+                }
+            }
+        }
+
         async function triggerProjectDeploy() {
             if (!currentToken) return alert('請先設定 Token');
             const repoName = document.getElementById('deploy-repo-select').value;
@@ -296,11 +337,11 @@
                     if (run.status === 'in_progress' || run.status === 'queued') {
                         updateStatus('deploy-status', 'running', `部署中...`);
                     } else if (run.conclusion === 'success') {
-                        updateStatus('deploy-status', 'success', `部署成功 (${createdAt})`);
+                        updateStatus('deploy-status', 'success', `上次成功 (${createdAt})`);
                         document.getElementById('btn-deploy').disabled = false;
                         if (deployPollInterval) { clearInterval(deployPollInterval); deployPollInterval = null; }
                     } else {
-                        updateStatus('deploy-status', 'failure', `部署失敗 (${createdAt})`);
+                        updateStatus('deploy-status', 'failure', `上次失敗 (${createdAt})`);
                         document.getElementById('btn-deploy').disabled = false;
                         if (deployPollInterval) { clearInterval(deployPollInterval); deployPollInterval = null; }
                     }
@@ -658,11 +699,11 @@
             </div>
             
             <div style="margin-top: 15px; border-top: 1px solid var(--border); padding-top: 15px;">
-                <select id="deploy-repo-select" style="margin-bottom: 8px;">
+                <select id="deploy-repo-select" onchange="checkLatestDeployStatus()" style="margin-bottom: 8px;">
                     <option value="">載入專案中...</option>
                 </select>
                 <div style="display:flex; gap:10px; margin-bottom: 10px;">
-                    <input type="text" id="deploy-workflow" value="deploy.yml" placeholder="Workflow 檔名" style="flex:1; margin-bottom:0;">
+                    <input type="text" id="deploy-workflow" value="deploy.yml" placeholder="Workflow 檔名" style="flex:1; margin-bottom:0;" onchange="checkLatestDeployStatus()">
                     <input type="text" id="deploy-branch" value="main" placeholder="分支" style="width: 70px; margin-bottom:0;">
                     <button class="btn-success" id="btn-deploy" onclick="triggerProjectDeploy()" style="width: auto; white-space: nowrap;">🚀 部署</button>
                 </div>
@@ -735,6 +776,6 @@
 </html>
 <!-- ═══ EOF ═══
 F: AI-infra/index.html
-V: 1792910800
+V: 1792910900
 W: ai-system-004
 ═══ -->
