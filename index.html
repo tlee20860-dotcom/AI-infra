@@ -595,9 +595,16 @@
                     finalContent = base + "\n\n" + appendContent;
                 }
 
-                if (!finalContent.match(/F:\s*([^\s\n]+)\s*\nV:\s*\d+\s*\nW:\s*[^\s\n]+/)) {
+                const eofRegex = /(?:#\s*|\/\/\s*|\/\*\s*|<!--\s*)*F:\s*([^\s\n]+)\s*\n(?:#\s*|\/\/\s*|\/\*\s*|<!--\s*)*V:\s*\d+\s*\n(?:#\s*|\/\/\s*|\/\*\s*|<!--\s*)*W:\s*[^\s\n]+/;
+                if (!eofRegex.test(finalContent)) {
                     throw new Error(`發布失敗：替換後的檔案缺少 EOF (F/V/W)。請要求 AI 補齊後重新發布。`);
                 }
+
+/* ═══ EOF ═══
+F: AI-infra/index.html
+V: 1792911400
+W: ai-system-004
+═══ */
 
                 const base64Content = btoa(unescape(encodeURIComponent(finalContent)));
 
