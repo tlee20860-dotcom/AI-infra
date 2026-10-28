@@ -263,6 +263,7 @@
             if (!currentToken) return alert('請先設定 Token');
             const repoName = document.getElementById('deploy-repo-select').value;
             const workflow = document.getElementById('deploy-workflow').value.trim() || 'deploy.yml';
+            const branch = document.getElementById('deploy-branch').value.trim() || 'main';
             
             if (!repoName) return alert('請選擇專案');
             
@@ -272,7 +273,7 @@
             
             try {
                 await githubAPI(`/repos/${OWNER}/${repoName}/actions/workflows/${workflow}/dispatches`, {
-                    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ref: 'main' })
+                    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ref: branch })
                 });
                 updateStatus('deploy-status', 'running', '等待排隊...');
                 if (deployPollInterval) clearInterval(deployPollInterval);
@@ -662,6 +663,7 @@
                 </select>
                 <div style="display:flex; gap:10px; margin-bottom: 10px;">
                     <input type="text" id="deploy-workflow" value="deploy.yml" placeholder="Workflow 檔名" style="flex:1; margin-bottom:0;">
+                    <input type="text" id="deploy-branch" value="main" placeholder="分支" style="width: 70px; margin-bottom:0;">
                     <button class="btn-success" id="btn-deploy" onclick="triggerProjectDeploy()" style="width: auto; white-space: nowrap;">🚀 部署</button>
                 </div>
                 <div class="status-box">
@@ -733,6 +735,6 @@
 </html>
 <!-- ═══ EOF ═══
 F: AI-infra/index.html
-V: 1792910700
+V: 1792910800
 W: ai-system-004
 ═══ -->
