@@ -467,7 +467,8 @@
             if (eofMatch) {
                 pathMatch = eofMatch[0].match(/F:\s*([^\s\n]+)/);
             } else {
-                pathMatch = content.match(/(?:F:|"F":)\s*"?([^\s"\n]+)"?/);
+                // Bug-5 修復：fallback 必須是獨立行，避免誤抓內文
+                pathMatch = content.match(/^F:\s*"?([^\s"\n]+)"?$/m);
             }
 
             // 防呆：如果是 PARTIAL_REPLACE，NEW 區塊必須包含 EOF
@@ -500,10 +501,15 @@
                             errors.push(`未知的倉庫目標：${repo}。請確認是否已在 config/repos.json 中註冊。`);
                         }
                         errorTargets.push(null);
+                        // Bug-6 修復：若非白名單，清空目標，避免強制發布寫錯位置
+                        document.getElementById('target-repo').value = '';
+                        document.getElementById('target-file-path').value = '';
+                        document.getElementById('target-path-display').textContent = `目標：無效（${repo}）`;
+                    } else {
+                        document.getElementById('target-path-display').textContent = `目標：${repo} / ${filePath}`;
+                        document.getElementById('target-repo').value = repo;
+                        document.getElementById('target-file-path').value = filePath;
                     }
-                    document.getElementById('target-path-display').textContent = `目標：${repo} / ${filePath}`;
-                    document.getElementById('target-repo').value = repo;
-                    document.getElementById('target-file-path').value = filePath;
                 }
             }
 
@@ -604,7 +610,8 @@
 
                 newPre.innerHTML = highlightText(content, targetsToHighlight);
 
-                if (repo && filePath) {
+                // Bug-6 修復：只有白名單 repo 且 filePath 有效時才顯示強制發布
+                if (repo && filePath && allowedRepos.includes(repo)) {
                     forceBtn.style.display = 'block';
                 }
             } else {
@@ -653,6 +660,12 @@
             const repo = document.getElementById('target-repo').value;
             const filePath = document.getElementById('target-file-path').value;
 
+            if (!repo || !filePath) {
+                alert('發布失敗：未指定目標倉庫或路徑（請確認是否在白名單內）。');
+                targetBtn.disabled = false; targetBtn.textContent = originalText;
+                return;
+            }
+
             try {
                 let sha = null;
                 let originalContent = "";
@@ -669,6 +682,7 @@
                 }
 
                 let finalContent = content;
+                let isAppend = false;
 
                 const patchRegex = /<<<<<<< OLD\n([\s\S]*?)\n=======\n([\s\S]*?)\n>>>>>>> NEW/;
                 const patchMatch = content.match(patchRegex);
@@ -685,29 +699,40 @@
                         finalContent = patchMatch[2];
                     }
                 } 
-                else if (content.includes("[APPEND]") && originalContent) {
+                // Bug-1 修復：使用正則確認為行首標記，防止內文含有 [APPEND] 誤觸發
+                else if (/^\s*\[APPEND\]/m.test(content) && originalContent) {
+                    isAppend = true;
                     let base = originalContent;
-                    const eofIndex = base.lastIndexOf("/* ═══ EOF ═══");
-                    const mdEofIndex = base.lastIndexOf("F:");
                     
-                    if (eofIndex > 0) base = base.substring(0, eofIndex).trim();
-                    else if (mdEofIndex > 0) {
-                        const lineStart = base.lastIndexOf("\n", mdEofIndex);
-                        if (lineStart > 0) base = base.substring(0, lineStart).trim();
+                    // Bug-3 & 4 修復：精準抓取檔尾的 EOF 區塊並切除
+                    // 支援 /* ═══ EOF ═══ ... */ 或 <!-- ═══ EOF ═══ ... --> 或 # ═══ EOF ═══ ...
+                    const eofBlockRegex = /(?:\/\*\s*|<!--\s*|#\s*)*[═=]+\s*EOF\s*[═=]+[\s\S]*?(?:\*\/|-->|#)\s*$/;
+                    if (eofBlockRegex.test(base)) {
+                        base = base.replace(eofBlockRegex, '').trim();
+                    } else {
+                        // 若無包圍符號，嘗試找最後一個獨立的 F: 標記（通常為 md 檔）
+                        const mdEofRegex = /\n*F:\s*[^\n]+\s*\nV:\s*\d+\s*\nW:\s*[^\n]+\s*$/m;
+                        if (mdEofRegex.test(base)) {
+                            base = base.replace(mdEofRegex, '').trim();
+                        }
                     }
 
-                    let appendContent = content.replace("[APPEND]", "").trim();
+                    let appendContent = content.replace(/^\s*\[APPEND\]\s*/, '').trim();
                     finalContent = base + "\n\n" + appendContent;
                 }
 
-                // JSON 檔用 _EOF 鍵檢查；其他檔用正則
+                // 絕對防呆：驗證最終內容是否有 EOF
                 if (!hasValidEof(finalContent, filePath)) {
                     throw new Error(`發布失敗：替換後的檔案缺少 EOF (F/V/W)。請要求 AI 補齊後重新發布。`);
                 }
 
                 const base64Content = btoa(unescape(encodeURIComponent(finalContent)));
 
-                const body = { message: `Update ${filePath} via Console`, content: base64Content };
+                let commitMsg = `Update ${filePath} via Console`;
+                if (isForce) commitMsg += ' [FORCE]';
+                if (isAppend) commitMsg += ' [APPEND]';
+
+                const body = { message: commitMsg, content: base64Content };
                 if (sha) body.sha = sha;
 
                 await githubAPI(`/repos/${OWNER}/${repo}/contents/${filePath}`, {
@@ -715,8 +740,9 @@
                 });
 
                 const timeStr = new Date().toLocaleTimeString('zh-TW', { hour12: false });
+                const forceTag = isForce ? '（強制發布）' : '';
                 
-                document.getElementById('success-message').innerHTML = `🎉 已成功寫入：<br><b>${repo}/${filePath}</b><br><span style="font-size:0.85rem; color:#047857; font-weight:normal;">⏱️ 寫入時間：${timeStr}</span>`;
+                document.getElementById('success-message').innerHTML = `🎉 已成功寫入${forceTag}：<br><b>${repo}/${filePath}</b><br><span style="font-size:0.85rem; color:#047857; font-weight:normal;">⏱️ 寫入時間：${timeStr}</span>`;
                 targetBtn.style.display = 'none';
                 document.getElementById('error-panel').style.display = 'none';
                 document.getElementById('success-panel').style.display = 'block';
@@ -894,6 +920,6 @@
 </html>
 <!-- ═══ EOF ═══
 F: AI-infra/index.html
-V: 1792914400
+V: 1792915000
 W: ai-system-005
 ═══ -->
