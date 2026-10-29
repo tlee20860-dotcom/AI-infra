@@ -18,6 +18,9 @@ except ImportError:
 CONFIG_PATH = "AI-kernel/docs/r-rules/validate-config.json"
 FORBIDDEN_PATH = "AI-kernel/docs/r-rules/forbidden_words.txt"
 
+# 代碼檔案副檔名清單：這些檔案不做代碼塊跳過，逐行檢查禁用詞
+CODE_FILE_EXTS = (".py", ".js", ".css", ".html", ".yml", ".yaml", ".json", ".sh")
+
 DEFAULT_CONFIG = {
     "ignore_patterns": ["external/old-AI-WA-FAMILY/*", "external/AI-OS/*"],
     "file_specific_rules": {}
@@ -114,38 +117,48 @@ def check_eof(content, filepath):
             return None, m.group(3)
         return "缺少註解包裹的 EOF（F/V/W）", "Unknown"
 
-def check_content_lines(content, forbidden_words, specific_rule):
+def check_content_lines(content, filepath, forbidden_words, specific_rule):
+    """
+    檢查檔案內容。
+    - .md 檔案：跳過代碼塊內的檢查（避免規則範例被誤判）
+    - 代碼檔案（.py/.js/.css/.html/.yml/.yaml/.json/.sh）：不跳過，逐行檢查
+      （因為代碼檔案內的註解與字串也可能含禁用詞，需全量掃描）
+    """
     problems = []
     lines = content.splitlines()
+
+    is_code_file = filepath.endswith(CODE_FILE_EXTS)
+    # 只有 .md 檔案才啟用代碼塊跳過
+    skip_code_block = not is_code_file
+
     is_in_code_block = False
-    
+
     for i, line in enumerate(lines, 1):
-        if line.strip().startswith("```") or line.strip().startswith("~~~"):
-            is_in_code_block = not is_in_code_block
-            continue
-            
-        if is_in_code_block:
-            continue
+        if skip_code_block:
+            if line.strip().startswith("```") or line.strip().startswith("~~~"):
+                is_in_code_block = not is_in_code_block
+                continue
+            if is_in_code_block:
+                continue
 
         # 禁用詞檢查
         if specific_rule.get("check_forbidden_words", True):
             for word in forbidden_words:
                 if word in line:
                     problems.append(f"第 {i} 行：發現禁用詞彙「{word}」")
-        
+
         # 繁簡檢查 (使用 zhconv)
         if specific_rule.get("check_simplified", True) and zhconv:
-            # 將整行轉為繁體，若與原行不同，代表原行包含簡體
             if zhconv.convert(line, 'zh-hant') != line:
                 problems.append(f"第 {i} 行：發現疑似簡體字（請檢查）")
-                
+
     return problems
 
 def main():
     config = load_config()
     forbidden_words = load_forbidden_words()
     targets = get_changed_files()
-    
+
     if not targets:
         print("[SUMMARY] 無變更檔案，跳過檢查。")
         sys.exit(0)
@@ -175,9 +188,9 @@ def main():
             report.append(f"[WARN] {path}: 異常減少 {stats['deleted']} 行，且無 [allow-delete] 標記。")
             warn += 1
 
-        if not path.endswith((".md", ".py", ".js", ".css", ".html", ".yml", ".json", ".sh", ".txt")):
+        if not path.endswith((".md", ".py", ".js", ".css", ".html", ".yml", ".yaml", ".json", ".sh", ".txt")):
             continue
-            
+
         total += 1
         try:
             with open(path, "r", encoding="utf-8") as fh:
@@ -188,13 +201,13 @@ def main():
             continue
 
         specific_rule = config.get("file_specific_rules", {}).get(path, {})
-        
+
         eof_err, writer = check_eof(content, path)
         if eof_err:
             report.append(f"[ERROR] {path} (編寫者: {writer})\n  - {eof_err}")
             bad += 1
 
-        content_errs = check_content_lines(content, forbidden_words, specific_rule)
+        content_errs = check_content_lines(content, path, forbidden_words, specific_rule)
         for err in content_errs:
             report.append(f"[ERROR] {path} (編寫者: {writer})\n  - {err}")
             bad += 1
@@ -214,6 +227,6 @@ if __name__ == "__main__":
     main()
 /* ═══ EOF ═══
 F: AI-infra/.github/scripts/validate_delivery.py
-V: 1792905800
-W: ai-system-003#7
+V: 1792913800
+W: ai-system-005
 ═══ */
