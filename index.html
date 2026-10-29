@@ -29,7 +29,7 @@
             margin-top: -15px;
             margin-bottom: 15px; 
         }
-
+        
         input[type="text"], input[type="password"], textarea, select { width: 100%; padding: 12px; border: 1px solid var(--border); border-radius: 8px; font-size: 0.95rem; margin-bottom: 10px; font-family: inherit; }
         
         /* 鎖定 textarea 的高度，防止被內容撐爆 */
@@ -54,6 +54,12 @@
         .success-panel { background-color: #ecfdf5; border: 1px solid #a7f3d0; color: #065f46; }
         .error-list { font-size: 0.85rem; margin-bottom: 10px; white-space: pre-wrap; font-family: monospace; }
         
+        /* 雙卡片對比 */
+        .compare-card { background: #fff; border: 1px solid var(--border); border-radius: 6px; padding: 8px; margin-bottom: 8px; }
+        .compare-card-title { font-size: 0.8rem; font-weight: bold; color: var(--text-muted); margin-bottom: 6px; }
+        .compare-card pre { font-size: 0.75rem; line-height: 1.4; white-space: pre-wrap; word-break: break-all; max-height: 300px; overflow-y: auto; font-family: monospace; color: var(--text); background: #f8fafc; padding: 6px; border-radius: 4px; }
+        .compare-card.loading pre { color: var(--text-muted); font-style: italic; }
+        
         details { margin-bottom: 15px; }
         summary { cursor: pointer; font-weight: bold; padding: 12px 15px; background: #f8fafc; border-radius: 8px; border: 1px solid var(--border); outline: none; display: flex; align-items: center; gap: 8px; }
     </style>
@@ -77,6 +83,9 @@
         let globalConfig = { console_rules: {}, file_specific_rules: {} };
         let allowedRepos = [];
         let projectList = [];
+
+        // 舊檔快取：同一輪貼上期間快取，resetUI 清空
+        let oldContentCache = {};
 
         window.onload = async () => {
             loadTokens(); 
@@ -351,7 +360,54 @@
             }
         }
 
-        function processFile() {
+        // ── 取舊檔（含快取）──
+        async function fetchOldContent(repo, filePath) {
+            const cacheKey = `${repo}/${filePath}`;
+            if (oldContentCache.hasOwnProperty(cacheKey)) {
+                return oldContentCache[cacheKey];
+            }
+            try {
+                const existing = await githubAPI(`/repos/${OWNER}/${repo}/contents/${filePath}`);
+                if (existing && existing.sha && existing.content) {
+                    const content = decodeURIComponent(escape(atob(existing.content.replace(/\n/g, ''))));
+                    oldContentCache[cacheKey] = content;
+                    return content;
+                }
+            } catch (e) {
+                // 404 表示新檔
+            }
+            oldContentCache[cacheKey] = null;
+            return null;
+        }
+
+        // ── JSON EOF 檢查 ──
+        function hasValidEof(content, filePath) {
+            if (filePath && filePath.endsWith('.json')) {
+                try {
+                    const data = JSON.parse(content);
+                    return data._EOF && data._EOF.F && data._EOF.V !== undefined && data._EOF.W;
+                } catch (e) {
+                    return false;
+                }
+            }
+            const eofRegex = /(?:#\s*|\/\/\s*|\/\*\s*|<!--\s*)*F:\s*([^\s\n]+)\s*\n(?:#\s*|\/\/\s*|\/\*\s*|<!--\s*)*V:\s*\d+\s*\n(?:#\s*|\/\/\s*|\/\*\s*|<!--\s*)*W:\s*[^\s\n]+/;
+            return eofRegex.test(content);
+        }
+
+        // ── 標記錯誤 ──
+        function markError(msg, target, oldContent) {
+            let mark = '';
+            if (oldContent === null) {
+                mark = '〔新檔案〕';
+            } else if (target && oldContent.includes(target)) {
+                mark = '〔既有〕';
+            } else {
+                mark = '〔新增〕';
+            }
+            return `${msg}${mark}`;
+        }
+
+        async function processFile() {
             const content = document.getElementById('file-input').value;
             const errorPanel = document.getElementById('error-panel');
             const successPanel = document.getElementById('success-panel');
@@ -365,6 +421,7 @@
             if (!content.trim()) return alert('請先貼上內容');
 
             let errors = [];
+            let errorTargets = []; // 平行陣列，記錄每個錯誤對應的被檢出字串
             let repo = "", filePath = "", fullPath = "未知路徑";
             const rules = globalConfig.console_rules || {};
 
@@ -381,19 +438,21 @@
             const patchMatch = content.match(/<<<<<<< OLD\n([\s\S]*?)\n=======\n([\s\S]*?)\n>>>>>>> NEW/);
             if (patchMatch) {
                 const newStr = patchMatch[2];
-                const eofRegex = /(?:#\s*|\/\/\s*|\/\*\s*|<!--\s*)*F:\s*([^\s\n]+)\s*\n(?:#\s*|\/\/\s*|\/\*\s*|<!--\s*)*V:\s*\d+\s*\n(?:#\s*|\/\/\s*|\/\*\s*|<!--\s*)*W:\s*[^\s\n]+/;
-                if (!eofRegex.test(newStr)) {
+                if (!hasValidEof(newStr, null)) {
                     errors.push("局部替換的 NEW 區塊缺少 F/V/W 標記。這會導致無法追蹤修改者，請要求 AI 補齊後重新發布。");
+                    errorTargets.push(null);
                 }
             }
             
             if (!pathMatch) {
                 errors.push("找不到 F: 路徑標記。請確認 AI 是否漏寫 EOF。");
+                errorTargets.push(null);
             } else {
                 fullPath = pathMatch[1];
                 const pathParts = fullPath.split('/');
                 if (pathParts.length < 2) {
                     errors.push(`路徑格式錯誤：${fullPath}。必須包含倉庫名。`);
+                    errorTargets.push(null);
                 } else {
                     repo = pathParts[0];
                     filePath = pathParts.slice(1).join('/');
@@ -404,6 +463,7 @@
                         } else {
                             errors.push(`未知的倉庫目標：${repo}。請確認是否已在 config/repos.json 中註冊。`);
                         }
+                        errorTargets.push(null);
                     }
                     document.getElementById('target-path-display').textContent = `目標：${repo} / ${filePath}`;
                     document.getElementById('target-repo').value = repo;
@@ -418,6 +478,7 @@
                 const htmlTagCount = (content.match(/<html/gi) || []).length;
                 if (doctypeCount > 1 || htmlTagCount > 1) {
                     errors.push(`檔案結構異常：偵測到多個 <!DOCTYPE html> 或 <html> 標籤。這通常是因為局部替換（PARTIAL_REPLACE）時，NEW 區塊的內容貼錯或未閉合。請退回 FULL_FILE 模式重新交付。`);
+                    errorTargets.push(null);
                 }
             }
 
@@ -434,65 +495,29 @@
             let cleanContent = content.replace(/```[\s\S]*?```/g, '').replace(/~~~[\s\S]*?~~~/g, '');
             cleanContent = cleanContent.replace(/「[^」]*」/g, '').replace(/`[^`]*`/g, '');
 
-            if (isCodeFile) {
-                const lazyPatterns = [
-                    { regex: /\/\/\s*\.\.\./, msg: "發現偷懶省略：// ..." },
-                    { regex: /\/\*\s*\.\.\./, msg: "發現偷懶省略：/* ..." },
-                    { regex: /<!--\s*\.\.\./, msg: "發現偷懶省略：<!-- ..." },
-                    { regex: /\/\/\s*(其餘|以下|中間|其他).{0,5}(不變|省略|同上)/, msg: "發現偷懶省略：// 其餘不變" },
-                    { regex: /<!--\s*(其餘|以下|中間|其他).{0,5}(不變|省略|同上)/, msg: "發現偷懶省略：<!-- 其餘不變" }
-                ];
-
-                lazyPatterns.forEach(p => {
-                    if (p.regex.test(cleanContent)) errors.push(p.msg);
-                });
-
-                let hasLue = false;
-                let matchIdx = cleanContent.indexOf('略');
-                while (matchIdx !== -1) {
-                    let prefix = cleanContent[matchIdx - 1];
-                    if (!['忽', '省', '策', '戰', '大', '方', '概'].includes(prefix)) {
-                        hasLue = true;
-                        break;
+            // 統一從 forbidden_words.txt 讀取（含 lazyPatterns 5 條），做字串比對
+            // 不再使用獨立的 lazyPatterns 正則，確保「規則怎麼寫，檢查就怎麼查」
+            if (!isRecordFile) {
+                globalForbiddenWords.forEach(word => {
+                    if (cleanContent.includes(word)) {
+                        // 「略」需特別處理：避免「忽略」「省略」等正常詞被誤判
+                        // 但依本次規則，白名單已移除，純字串比對
+                        errors.push(`發現禁用詞彙或偷懶樣式：「${word}」`);
+                        errorTargets.push(word);
                     }
-                    matchIdx = cleanContent.indexOf('略', matchIdx + 1);
-                }
-                
-                if (cleanContent.includes("省略") || hasLue) {
-                    errors.push("發現禁用詞彙：程式碼中不允許出現「省略」或「略」字");
-                }
+                });
+            }
 
-            } else {
-                if (specificRule.check_forbidden_words !== false && !isRecordFile) {
-                    globalForbiddenWords.forEach(word => {
-                        let isViolation = false;
-                        if (word === '略') {
-                            let matchIdx = cleanContent.indexOf('略');
-                            while (matchIdx !== -1) {
-                                let prefix = cleanContent[matchIdx - 1];
-                                if (!['忽', '省', '策', '戰', '大', '方', '概'].includes(prefix)) {
-                                    isViolation = true;
-                                    break;
-                                }
-                                matchIdx = cleanContent.indexOf('略', matchIdx + 1);
-                            }
-                        } else {
-                            if (cleanContent.includes(word)) {
-                                isViolation = true;
-                            }
-                        }
-                        if (isViolation) {
-                            errors.push(`發現禁用詞彙：「${word}」`);
-                        }
-                    });
-                }
-
-                if (specificRule.check_simplified !== false) {
-                    const simplified = globalConfig.simplified_chars || [];
-                    simplified.forEach(word => {
-                        if (cleanContent.includes(word)) errors.push(`發現簡體字：「${word}」`);
-                    });
-                }
+            // 繁簡檢查（前端暫不啟用，交由 CI 的 zhconv 全量處理）
+            // 若日後 simplified_chars 有值，再啟用此段
+            const simplified = globalConfig.simplified_chars || [];
+            if (specificRule.check_simplified !== false && simplified.length > 0) {
+                simplified.forEach(word => {
+                    if (cleanContent.includes(word)) {
+                        errors.push(`發現簡體字：「${word}」`);
+                        errorTargets.push(word);
+                    }
+                });
             }
 
             if (errors.length > 0) {
@@ -503,7 +528,41 @@
                 if (rules.show_file_path_in_error !== false) {
                     header = (rules.error_header_format || "📄 檔案：{path}\n------------------------\n").replace("{path}", fullPath);
                 }
-                document.getElementById('error-list').textContent = header + errors.join('\n');
+
+                // 取舊檔（若非新檔）
+                let oldContent = null;
+                let oldContentStatus = '';
+                if (repo && filePath) {
+                    oldContent = await fetchOldContent(repo, filePath);
+                    if (oldContent === null) {
+                        oldContentStatus = '（新檔案，倉庫無舊版）';
+                    }
+                } else {
+                    oldContentStatus = '（無法解析路徑，無法取得舊檔）';
+                }
+
+                // 顯示錯誤列表（含標記）
+                let displayErrors = '';
+                errors.forEach((err, i) => {
+                    displayErrors += markError(err, errorTargets[i], oldContent) + '\n';
+                });
+                document.getElementById('error-list').textContent = header + displayErrors;
+
+                // 顯示雙卡片
+                const compareCards = document.getElementById('compare-cards');
+                compareCards.style.display = 'block';
+
+                const oldCard = document.getElementById('old-content-card');
+                const oldPre = document.getElementById('old-content-view');
+                if (oldContent !== null) {
+                    oldCard.classList.remove('loading');
+                    oldPre.textContent = oldContent;
+                } else {
+                    oldCard.classList.add('loading');
+                    oldPre.textContent = oldContentStatus || '讀取中…';
+                }
+
+                document.getElementById('new-content-view').textContent = content;
 
                 if (repo && filePath) {
                     forceBtn.style.display = 'block';
@@ -523,6 +582,7 @@
             document.getElementById('input-area').style.display = 'block';
             document.getElementById('btn-publish').style.display = 'none';
             document.getElementById('btn-reset-next').style.display = 'none';
+            document.getElementById('compare-cards').style.display = 'none';
             
             const btn = document.getElementById('btn-publish');
             btn.disabled = false; 
@@ -532,6 +592,9 @@
             forceBtn.style.display = 'none';
             forceBtn.disabled = false;
             forceBtn.textContent = '🚨 強制發布（忽略錯誤）';
+
+            // 清空快取
+            oldContentCache = {};
         }
 
         function copyError() {
@@ -597,8 +660,8 @@
                     finalContent = base + "\n\n" + appendContent;
                 }
 
-                const eofRegex = /(?:#\s*|\/\/\s*|\/\*\s*|<!--\s*)*F:\s*([^\s\n]+)\s*\n(?:#\s*|\/\/\s*|\/\*\s*|<!--\s*)*V:\s*\d+\s*\n(?:#\s*|\/\/\s*|\/\*\s*|<!--\s*)*W:\s*[^\s\n]+/;
-                if (!eofRegex.test(finalContent)) {
+                // JSON 檔用 _EOF 鍵檢查；其他檔用正則
+                if (!hasValidEof(finalContent, filePath)) {
                     throw new Error(`發布失敗：替換後的檔案缺少 EOF (F/V/W)。請要求 AI 補齊後重新發布。`);
                 }
 
@@ -728,6 +791,19 @@
         <div class="error-panel" id="error-panel">
             <div style="font-weight:bold; margin-bottom:10px;">❌ 檢查未通過</div>
             <div class="error-list" id="error-list"></div>
+            
+            <!-- 雙卡片對比 -->
+            <div id="compare-cards" style="display:none; margin-bottom:10px;">
+                <div class="compare-card" id="old-content-card">
+                    <div class="compare-card-title">📦 倉庫現有內容（舊檔）</div>
+                    <pre id="old-content-view"></pre>
+                </div>
+                <div class="compare-card">
+                    <div class="compare-card-title">📝 本次貼上內容（新檔）</div>
+                    <pre id="new-content-view"></pre>
+                </div>
+            </div>
+            
             <button class="btn-primary" style="background:#ef4444; margin-bottom:10px;" onclick="copyError()">📋 一鍵複製錯誤訊息</button>
             <button class="btn-primary" style="background:#64748b;" onclick="resetUI()">🔄 清除並重新貼上</button>
             <button class="btn-danger" id="btn-force-publish" style="display:none; margin-top:10px; background:#991b1b;" onclick="publishFile(true)">🚨 強制發布（忽略錯誤）</button>
