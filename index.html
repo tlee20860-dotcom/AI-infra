@@ -461,14 +461,15 @@
             let repo = "", filePath = "", fullPath = "未知路徑";
             const rules = globalConfig.console_rules || {};
 
-            let eofMatch = content.match(/F:\s*([^\s\n]+)\s*\nV:\s*\d+\s*\nW:\s*[^\s\n]+/);
+            // 修復：允許註解符號包裹 F: 標記
+            let eofMatch = content.match(/(?:#\s*|\/\/\s*|\/\*\s*|<!--\s*)*F:\s*([^\s\n]+)\s*\n(?:#\s*|\/\/\s*|\/\*\s*|<!--\s*)*V:\s*\d+\s*\n(?:#\s*|\/\/\s*|\/\*\s*|<!--\s*)*W:\s*[^\s\n]+/);
             let pathMatch = null;
             
             if (eofMatch) {
-                pathMatch = eofMatch[0].match(/F:\s*([^\s\n]+)/);
+                pathMatch = eofMatch;
             } else {
-                // Bug-5 修復：fallback 必須是獨立行，避免誤抓內文
-                pathMatch = content.match(/^F:\s*"?([^\s"\n]+)"?$/m);
+                // Bug-5 修復：fallback 必須是獨立行，允許註解符號包裹
+                pathMatch = content.match(/^(?:#\s*|\/\/\s*|\/\*\s*|<!--\s*)*F:\s*"?([^\s"\n]+)"?\s*(?:\*\/|-->)?$/m);
             }
 
             // 防呆：如果是 PARTIAL_REPLACE，NEW 區塊必須包含 EOF
@@ -932,6 +933,6 @@
 </html>
 <!-- ═══ EOF ═══
 F: AI-infra/index.html
-V: 1792915400
+V: 1792916500
 W: ai-system-005
 ═══ -->
