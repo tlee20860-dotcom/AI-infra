@@ -9,9 +9,9 @@ on:
   workflow_dispatch:
     inputs:
       repos:
-        description: '要備份的倉庫名稱 (逗號分隔)'
+        description: '要備份的倉庫名稱 (逗號分隔)，輸入 ALL 代表抓取所有 ai-systems'
         required: true
-        default: 'AI-kernel,AI-General,old-AI-WA-FAMILY,AI-OS'
+        default: 'ALL'
       target_repo:
         description: '備份存放的目標倉庫'
         required: true
@@ -46,32 +46,33 @@ jobs:
         run: |
           mkdir -p "backup-repo/${{ env.FOLDER_NAME }}"
           
-          # 將逗號分隔的字串轉為陣列
+          if [ "$REPOS" = "ALL" ]; then
+            echo "正在抓取所有帶有 ai-systems 標籤的倉庫"
+            REPO_LIST=$(gh search repos --owner tlee20860-dotcom --topic ai-systems --json name --jq '.[].name' | grep -v -E '^AI-Backup$|^AI-packages$')
+            REPOS=$(echo "$REPO_LIST" | tr '\n' ',' | sed 's/,$//')
+            echo "抓取到的倉庫：$REPOS"
+          fi
+
           IFS=',' read -ra REPO_ARRAY <<< "$REPOS"
           
           for REPO_NAME in "${REPO_ARRAY[@]}"; do
-            # 去除前後空白
             REPO_NAME=$(echo "$REPO_NAME" | xargs)
             if [ -z "$REPO_NAME" ]; then continue; fi
             
             echo "========================================"
             echo "正在備份: $REPO_NAME"
             
-            # 優先嘗試 main 分支，失敗則嘗試 master
             git clone --depth 1 -b main "https://x-access-token:${GH_TOKEN}@github.com/tlee20860-dotcom/${REPO_NAME}.git" "temp-${REPO_NAME}" 2>/dev/null || \
             git clone --depth 1 -b master "https://x-access-token:${GH_TOKEN}@github.com/tlee20860-dotcom/${REPO_NAME}.git" "temp-${REPO_NAME}" 2>/dev/null
             
             if [ -d "temp-${REPO_NAME}" ]; then
-              # 將整個目錄結構完整複製過去
               cp -a "temp-${REPO_NAME}" "backup-repo/${{ env.FOLDER_NAME }}/${REPO_NAME}"
-              # 移除 .git 資料夾以節省備份倉庫空間
               rm -rf "backup-repo/${{ env.FOLDER_NAME }}/${REPO_NAME}/.git"
-              echo "✅ ${REPO_NAME} 備份完成 (完整保留目錄結構)。"
+              echo "✅ ${REPO_NAME} 備份完成 (完整保留目錄結構)"
             else
-              echo "⚠️ ${REPO_NAME} clone 失敗，請確認名稱是否正確或權限不足，跳過。"
+              echo "⚠️ ${REPO_NAME} clone 失敗，請確認名稱是否正確或權限不足，跳過"
             fi
             
-            # 清理臨時目錄
             rm -rf "temp-${REPO_NAME}"
           done
 
@@ -82,17 +83,16 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add .
           
-          # 檢查是否有變更
           if git diff --cached --quiet; then
-            echo "沒有新的變更需要備份。"
+            echo "沒有新的變更需要備份"
           else
             git commit -m "chore: backup snapshot ${{ env.FOLDER_NAME }}"
             git push
-            echo "✅ 備份已成功推送到目標倉庫。"
+            echo "✅ 備份已成功推送到目標倉庫"
           fi
 
 # ═══ EOF ═══
 # F: AI-infra/.github/workflows/copy-backup.yml
 # V: 1792900065
-# W: ai-system-20261024-012#100
+# W: ai-system-005
 # ═══ EOF ═══
