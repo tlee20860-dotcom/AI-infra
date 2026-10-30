@@ -546,8 +546,9 @@
             }
 
             const isConsoleFile = (repo === 'AI-infra' && filePath === 'index.html');
+            const isRuleFile = (repo === 'AI-kernel' && filePath.includes('r-rules'));
 
-            if (!isConsoleFile) {
+            if (!isConsoleFile && !isRuleFile) {
                 if (currentInputMode === 'full' && content.includes('<<<<<<< OLD')) {
                     errors.push("您在「完整檔」版面貼上了局部替換語法。請切換至「增量/局部替換」分頁。");
                     errorTargets.push(null);
@@ -598,7 +599,7 @@
                 }
             }
 
-            if (!isRecordFile && !isConsoleFile) {
+            if (!isRecordFile && !isConsoleFile && !isRuleFile) {
                 globalForbiddenWords.forEach(word => {
                     if (cleanContent.includes(word)) {
                         errors.push(`發現禁用詞彙或偷懶樣式：「${word}」`);
@@ -608,7 +609,7 @@
             }
 
             const simplified = globalConfig.simplified_chars || [];
-            if (specificRule.check_simplified !== false && simplified.length > 0 && !isConsoleFile) {
+            if (specificRule.check_simplified !== false && simplified.length > 0 && !isConsoleFile && !isRuleFile) {
                 simplified.forEach(word => {
                     if (cleanContent.includes(word)) {
                         errors.push(`發現簡體字：「${word}」`);
@@ -708,12 +709,22 @@
                 forceBtn.style.display = 'none';
 
                 const previewDiv = document.getElementById('preview-result');
+                const previewTitle = document.getElementById('preview-title');
+                const previewContentPre = document.getElementById('preview-content');
+                const previewCharCount = document.getElementById('preview-char-count');
+
+                previewDiv.style.display = 'block';
+                const oldLen = oldContent ? oldContent.length : 0;
+
                 if (isAppend || isPartial) {
-                    previewDiv.style.display = 'block';
-                    document.getElementById('preview-content').textContent = finalContent;
-                    document.getElementById('preview-char-count').textContent = `(${finalContent.length} 字)`;
+                    previewTitle.textContent = '👁️ 發布後的最終檔案預覽（請確認結構無誤）';
+                    previewContentPre.style.display = 'block';
+                    previewContentPre.textContent = finalContent;
+                    previewCharCount.textContent = `(舊檔 ${oldLen} 字 ➜ 新檔 ${finalContent.length} 字)`;
                 } else {
-                    previewDiv.style.display = 'none';
+                    previewTitle.textContent = '✅ 完整檔覆蓋確認（已隱藏內容以節省空間）';
+                    previewContentPre.style.display = 'none';
+                    previewCharCount.textContent = `(舊檔 ${oldLen} 字 ➜ 新檔 ${finalContent.length} 字)`;
                 }
             }
         }
@@ -781,12 +792,21 @@
                     const patchMatch = content.match(patchRegex);
                     
                     if (content.includes('<<<<<<< OLD')) {
-                        if (!patchMatch) throw new Error('偵測到 <<<<<<< OLD 標記，但格式不完整。已拒絕發布。');
-                        isPartial = true;
-                        const oldStr = patchMatch[1];
-                        const newStr = patchMatch[2];
-                        if (oldContent && !oldContent.includes(oldStr)) throw new Error('找不到要替換的目標字串。');
-                        finalContent = oldContent ? oldContent.replace(oldStr, newStr) : newStr;
+                        if (!patchMatch) {
+                            if (isForce) {
+                                // 修復：強制發布時，若匹配失敗則當作完整檔放行
+                                finalContent = content;
+                                isPartial = false;
+                            } else {
+                                throw new Error('偵測到 <<<<<<< OLD 標記，但格式不完整。已拒絕發布。');
+                            }
+                        } else {
+                            isPartial = true;
+                            const oldStr = patchMatch[1];
+                            const newStr = patchMatch[2];
+                            if (oldContent && !oldContent.includes(oldStr)) throw new Error('找不到要替換的目標字串。');
+                            finalContent = oldContent ? oldContent.replace(oldStr, newStr) : newStr;
+                        }
                     } else if (/^\s*\[APPEND\]/m.test(content) && oldContent) {
                         isAppend = true;
                         let base = oldContent.replace(/(?:\/\*\s*|<!--\s*|#\s*)*[═=]+\s*EOF\s*[═=]+[\s\S]*?(?:\*\/|-->|#)\s*$/, '').trim();
@@ -986,7 +1006,7 @@
             
             <div id="preview-result" style="display:none; margin-bottom:15px;">
                 <div style="font-size:0.85rem; font-weight:bold; color:var(--primary); margin-bottom:5px; display: flex; justify-content: space-between;">
-                    <span>👁️ 發布後的最終檔案預覽（請確認結構無誤）</span>
+                    <span id="preview-title">👁️ 發布後的最終檔案預覽（請確認結構無誤）</span>
                     <span id="preview-char-count" style="font-weight: normal; color: var(--text-muted);">(0 字)</span>
                 </div>
                 <pre id="preview-content" style="max-height:200px; overflow-y:auto; font-size:0.75rem; background:#fff; padding:8px; border-radius:5px; border:1px solid var(--border); white-space:pre-wrap;"></pre>
@@ -1031,6 +1051,6 @@
 </html>
 <!-- ═══ EOF ═══
 F: AI-infra/index.html
-V: 1792931800
+V: 1792932600
 W: ai-system-006
 ═══ -->
