@@ -567,17 +567,12 @@
                 }
             }
 
-            const isConsoleFile = (repo === 'AI-infra' && filePath === 'index.html');
-            const isRuleFile = (repo === 'AI-kernel' && filePath.includes('r-rules'));
-
-            if (!isConsoleFile && !isRuleFile) {
-                if (currentInputMode === 'full' && content.includes('<<<<<<< OLD')) {
-                    errors.push("您在「完整檔」版面貼上了局部替換語法。請切換至「增量/局部替換」分頁。");
-                    errorTargets.push(null);
-                } else if (currentInputMode === 'patch' && !content.includes('<<<<<<< OLD') && !/^\s*\[APPEND\]/m.test(content)) {
-                    errors.push("您在「增量/局部替換」版面，但內容缺乏 [APPEND] 或 <<<<<<< OLD 標記。");
-                    errorTargets.push(null);
-                }
+            if (currentInputMode === 'full' && content.includes('<<<<<<< OLD')) {
+                errors.push("您在「完整檔」版面貼上了局部替換語法。請切換至「增量/局部替換」分頁。");
+                errorTargets.push(null);
+            } else if (currentInputMode === 'patch' && !content.includes('<<<<<<< OLD') && !/^\s*\[APPEND\]/m.test(content)) {
+                errors.push("您在「增量/局部替換」版面，但內容缺乏 [APPEND] 或 <<<<<<< OLD 標記。");
+                errorTargets.push(null);
             }
 
             if (filePath.endsWith('.html') && repo !== 'AI-infra') {
@@ -620,7 +615,7 @@
                 }
             }
 
-            if (!isRecordFile && !isConsoleFile && !isRuleFile) {
+            if (!isRecordFile) {
                 globalForbiddenWords.forEach(word => {
                     if (cleanContent.includes(word)) {
                         errors.push(`發現禁用詞彙或偷懶樣式：「${word}」`);
@@ -630,7 +625,7 @@
             }
 
             const simplified = globalConfig.simplified_chars || [];
-            if (specificRule.check_simplified !== false && simplified.length > 0 && !isConsoleFile && !isRuleFile) {
+            if (specificRule.check_simplified !== false && simplified.length > 0) {
                 simplified.forEach(word => {
                     if (cleanContent.includes(word)) {
                         errors.push(`發現簡體字：「${word}」`);
@@ -693,16 +688,16 @@
 
             // 填寫字數與預覽
             const targetsToHighlight = errorTargets.filter(t => t);
-            document.getElementById('old-char-count').textContent = `(${oldContent ? oldContent.length : 0} 字)`;
-            document.getElementById('old-content-view').innerHTML = oldContent !== null ? highlightText(oldContent, targetsToHighlight) : oldContentStatus;
             
-            document.getElementById('new-char-count').textContent = `(${content.length} 字)`;
-            document.getElementById('new-content-view').innerHTML = highlightText(content, targetsToHighlight);
-
-            inputArea.style.display = 'none';
-
             if (errors.length > 0) {
                 errorPanel.style.display = 'block';
+                inputArea.style.display = 'none';
+                
+                document.getElementById('old-char-count').textContent = `(${oldContent ? oldContent.length : 0} 字)`;
+                document.getElementById('old-content-view').innerHTML = oldContent !== null ? highlightText(oldContent, targetsToHighlight) : oldContentStatus;
+                document.getElementById('new-char-count').textContent = `(${content.length} 字)`;
+                document.getElementById('new-content-view').innerHTML = highlightText(content, targetsToHighlight);
+
                 let header = rules.show_file_path_in_error !== false ? (rules.error_header_format || "📄 檔案：{path}\n------------------------\n").replace("{path}", fullPath) : "";
                 let displayErrors = '';
                 errors.forEach((err, i) => { displayErrors += markError(err, errorTargets[i], oldContent) + '\n'; });
@@ -714,9 +709,15 @@
                 previewCache = { finalContent, isAppend, isPartial };
                 
                 document.getElementById('success-compare').style.display = 'flex';
-                document.getElementById('final-content-view').textContent = finalContent;
+                
+                // 左側舊檔
+                document.getElementById('old-char-count-success').textContent = `(${oldContent ? oldContent.length : 0} 字)`;
+                document.getElementById('old-content-view-success').innerHTML = oldContent !== null ? highlightText(oldContent, []) : oldContentStatus;
+                
+                // 右側最終結果
                 const oldLen = oldContent ? oldContent.length : 0;
                 document.getElementById('final-char-count').textContent = `(舊檔 ${oldLen} 字 ➜ 新檔 ${finalContent.length} 字)`;
+                document.getElementById('final-content-view').textContent = finalContent;
 
                 // 依賴提醒邏輯
                 if (DEPENDENCY_MAP[fullPath]) {
@@ -1078,6 +1079,6 @@
 </html>
 <!-- EOF
 F: AI-infra/index.html
-V: 1792935200
+V: 1792936400
 W: ai-system-006
 EOF -->
