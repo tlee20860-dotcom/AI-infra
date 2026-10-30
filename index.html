@@ -622,11 +622,27 @@
             let isAppend = false;
             let isPartial = false;
 
-            const patchRegex = /<<<<<<< OLD\n([\s\S]*?)\n=======\n([\s\S]*?)\n>>>>>>> NEW/;
-            const patchMatch = content.match(patchRegex);
-            
-            if (content.includes('<<<<<<< OLD')) {
+            // 修復：優先判定 [APPEND]，避免歷史檔內含 <<<<<<< OLD 被誤判
+            if (/^\s*\[APPEND\]/m.test(content)) {
+                isAppend = true;
+                if (oldContent) {
+                    let base = oldContent;
+                    const eofBlockRegex = /(?:\/\*\s*|<!--\s*|#\s*)*[═=]+\s*EOF\s*[═=]+[\s\S]*?(?:\*\/|-->|#)\s*$/;
+                    if (eofBlockRegex.test(base)) base = base.replace(eofBlockRegex, '').trim();
+                    else {
+                        const mdEofRegex = /\n*F:\s*[^\n]+\s*\nV:\s*\d+\s*\nW:\s*[^\n]+\s*$/m;
+                        if (mdEofRegex.test(base)) base = base.replace(mdEofRegex, '').trim();
+                    }
+                    let appendContent = content.replace(/^\s*\[APPEND\]\s*/, '').trim();
+                    finalContent = base + "\n\n" + appendContent;
+                } else {
+                    finalContent = content.replace(/^\s*\[APPEND\]\s*/, '').trim();
+                }
+            } else if (content.includes('<<<<<<< OLD')) {
                 isPartial = true;
+                const patchRegex = /<<<<<<< OLD\n([\s\S]*?)\n=======\n([\s\S]*?)\n>>>>>>> NEW/;
+                const patchMatch = content.match(patchRegex);
+                
                 if (!patchMatch) {
                     errors.push("局部替換格式錯誤：缺少 ======= 或 >>>>>>> NEW 標記。");
                     errorTargets.push(null);
@@ -634,7 +650,6 @@
                     const oldStr = patchMatch[1];
                     const newStr = patchMatch[2];
                     
-                    // 嚴格要求 NEW 區塊必須包含 EOF，不自動補
                     if (!hasValidEof(newStr, filePath)) {
                         errors.push("局部替換的 NEW 區塊缺少 F/V/W 標記。這會導致無法追蹤修改者，請要求 AI 補齊後重新發布。");
                         errorTargets.push(null);
@@ -649,17 +664,6 @@
                         finalContent = newStr;
                     }
                 }
-            } else if (/^\s*\[APPEND\]/m.test(content) && oldContent) {
-                isAppend = true;
-                let base = oldContent;
-                const eofBlockRegex = /(?:\/\*\s*|<!--\s*|#\s*)*[═=]+\s*EOF\s*[═=]+[\s\S]*?(?:\*\/|-->|#)\s*$/;
-                if (eofBlockRegex.test(base)) base = base.replace(eofBlockRegex, '').trim();
-                else {
-                    const mdEofRegex = /\n*F:\s*[^\n]+\s*\nV:\s*\d+\s*\nW:\s*[^\n]+\s*$/m;
-                    if (mdEofRegex.test(base)) base = base.replace(mdEofRegex, '').trim();
-                }
-                let appendContent = content.replace(/^\s*\[APPEND\]\s*/, '').trim();
-                finalContent = base + "\n\n" + appendContent;
             }
 
             if (errors.length === 0 && !hasValidEof(finalContent, filePath)) {
@@ -788,13 +792,21 @@
                         if (existing && existing.sha) oldContent = decodeURIComponent(escape(atob(existing.content.replace(/\n/g, ''))));
                     } catch(e) {}
                     
-                    const patchRegex = /<<<<<<< OLD\n([\s\S]*?)\n=======\n([\s\S]*?)\n>>>>>>> NEW/;
-                    const patchMatch = content.match(patchRegex);
-                    
-                    if (content.includes('<<<<<<< OLD')) {
+                    // 修復：優先判定 [APPEND]
+                    if (/^\s*\[APPEND\]/m.test(content)) {
+                        isAppend = true;
+                        if (oldContent) {
+                            let base = oldContent.replace(/(?:\/\*\s*|<!--\s*|#\s*)*[═=]+\s*EOF\s*[═=]+[\s\S]*?(?:\*\/|-->|#)\s*$/, '').trim();
+                            finalContent = base + "\n\n" + content.replace(/^\s*\[APPEND\]\s*/, '').trim();
+                        } else {
+                            finalContent = content.replace(/^\s*\[APPEND\]\s*/, '').trim();
+                        }
+                    } else if (content.includes('<<<<<<< OLD')) {
+                        const patchRegex = /<<<<<<< OLD\n([\s\S]*?)\n=======\n([\s\S]*?)\n>>>>>>> NEW/;
+                        const patchMatch = content.match(patchRegex);
+                        
                         if (!patchMatch) {
                             if (isForce) {
-                                // 修復：強制發布時，若匹配失敗則當作完整檔放行
                                 finalContent = content;
                                 isPartial = false;
                             } else {
@@ -807,10 +819,6 @@
                             if (oldContent && !oldContent.includes(oldStr)) throw new Error('找不到要替換的目標字串。');
                             finalContent = oldContent ? oldContent.replace(oldStr, newStr) : newStr;
                         }
-                    } else if (/^\s*\[APPEND\]/m.test(content) && oldContent) {
-                        isAppend = true;
-                        let base = oldContent.replace(/(?:\/\*\s*|<!--\s*|#\s*)*[═=]+\s*EOF\s*[═=]+[\s\S]*?(?:\*\/|-->|#)\s*$/, '').trim();
-                        finalContent = base + "\n\n" + content.replace(/^\s*\[APPEND\]\s*/, '').trim();
                     } else {
                         finalContent = content;
                     }
@@ -1051,6 +1059,6 @@
 </html>
 <!-- ═══ EOF ═══
 F: AI-infra/index.html
-V: 1792932600
+V: 1792933200
 W: ai-system-006
 ═══ -->
