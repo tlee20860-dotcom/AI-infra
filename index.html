@@ -533,12 +533,17 @@
             }
 
             // 防呆：如果是 PARTIAL_REPLACE，NEW 區塊必須包含 EOF
-            const patchMatch = content.match(/<<<<<<< OLD\n([\s\S]*?)\n=======\n([\s\S]*?)\n>>>>>>> NEW/);
-            if (patchMatch) {
-                const newStr = patchMatch[2];
-                if (!hasValidEof(newStr, null)) {
-                    errors.push("局部替換的 NEW 區塊缺少 F/V/W 標記。這會導致無法追蹤修改者，請要求 AI 補齊後重新發布。");
+            if (content.includes('<<<<<<< OLD')) {
+                const patchMatch = content.match(/<<<<<<< OLD\n([\s\S]*?)\n=======\n([\s\S]*?)\n>>>>>>> NEW/);
+                if (!patchMatch) {
+                    errors.push("局部替換格式錯誤：偵測到 <<<<<<< OLD，但缺少 ======= 或 >>>>>>> NEW 標記。為防污染，請退回完整檔或修正局部替換格式。");
                     errorTargets.push(null);
+                } else {
+                    const newStr = patchMatch[2];
+                    if (!hasValidEof(newStr, null)) {
+                        errors.push("局部替換的 NEW 區塊缺少 F/V/W 標記。這會導致無法追蹤修改者，請要求 AI 補齊後重新發布。");
+                        errorTargets.push(null);
+                    }
                 }
             }
             
@@ -611,8 +616,8 @@
             }
 
             // 【新增防呆】累積型檔案覆蓋攔截
-            const appendOnlyKeywords = ['DEBT', 'REJECTED', 'EVOLUTION', 'ARCHIVE', 'CONCLUSION'];
-            const isAppendOnlyFile = appendOnlyKeywords.some(kw => filePath.toUpperCase().includes(kw));
+            const appendOnlyKeywords = ['SYSTEM-DEBT.md', 'SYSTEM-REJECTED.md', 'SYSTEM-ARCHIVE.md', 'GENERAL-CONCLUSION.md', 'SYSTEM-EVOLUTION.md'];
+            const isAppendOnlyFile = appendOnlyKeywords.some(kw => filePath.endsWith(kw));
             
             if (isAppendOnlyFile && oldContent !== null) {
                 const isAppendMode = /^\s*\[APPEND\]/m.test(content);
@@ -760,7 +765,10 @@
                 const patchRegex = /<<<<<<< OLD\n([\s\S]*?)\n=======\n([\s\S]*?)\n>>>>>>> NEW/;
                 const patchMatch = content.match(patchRegex);
                 
-                if (patchMatch) {
+                if (content.includes('<<<<<<< OLD')) {
+                    if (!patchMatch) {
+                        throw new Error('偵測到 <<<<<<< OLD 標記，但格式不完整（缺少 ======= 或 >>>>>>> NEW）。為防污染，已拒絕發布。');
+                    }
                     if (originalContent) {
                         const oldStr = patchMatch[1];
                         const newStr = patchMatch[2];
@@ -1001,6 +1009,6 @@
 </html>
 <!-- ═══ EOF ═══
 F: AI-infra/index.html
-V: 1792916600
-W: ai-system-005
+V: 1792930500
+W: ai-system-006
 ═══ -->
