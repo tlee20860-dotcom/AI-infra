@@ -54,7 +54,7 @@
         .error-list { font-size: 0.85rem; margin-bottom: 10px; white-space: pre-wrap; font-family: monospace; }
         
         .compare-card { background: #fff; border: 1px solid var(--border); border-radius: 6px; padding: 8px; margin-bottom: 8px; }
-        .compare-card-title { font-size: 0.8rem; font-weight: bold; color: var(--text-muted); margin-bottom: 6px; }
+        .compare-card-title { font-size: 0.8rem; font-weight: bold; color: var(--text-muted); margin-bottom: 6px; display: flex; justify-content: space-between; align-items: center; }
         .compare-card pre { font-size: 0.75rem; line-height: 1.4; white-space: pre-wrap; word-break: break-all; max-height: 300px; overflow-y: auto; font-family: monospace; color: var(--text); background: #f8fafc; padding: 6px; border-radius: 4px; }
         
         .highlight-error { color: #dc2626; background-color: #fee2e2; font-weight: bold; border-radius: 2px; padding: 0 2px; }
@@ -62,7 +62,6 @@
         details { margin-bottom: 15px; }
         summary { cursor: pointer; font-weight: bold; padding: 12px 15px; background: #f8fafc; border-radius: 8px; border: 1px solid var(--border); outline: none; display: flex; align-items: center; gap: 8px; }
 
-        /* Tabs 樣式 */
         .tabs { display: flex; margin-bottom: 15px; border-bottom: 2px solid var(--border); }
         .tab-btn { flex: 1; padding: 10px; background: none; border: none; border-bottom: 3px solid transparent; font-weight: bold; color: var(--text-muted); cursor: pointer; font-size: 0.95rem; border-radius: 0; }
         .tab-btn.active { color: var(--primary); border-bottom-color: var(--primary); }
@@ -94,7 +93,7 @@
 
         let oldContentCache = {};
         let previewCache = { finalContent: '', isAppend: false, isPartial: false };
-        let currentInputMode = 'full'; // 'full' or 'patch'
+        let currentInputMode = 'full';
 
         window.onload = async () => {
             loadTokens(); 
@@ -118,7 +117,6 @@
             currentInputMode = mode;
             document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
             document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
-            
             document.querySelector(`.tab-btn[data-tab="${mode}"]`).classList.add('active');
             document.getElementById(`input-${mode}`).classList.add('active');
         }
@@ -516,7 +514,6 @@
             if (eofMatch) pathMatch = eofMatch;
             else pathMatch = content.match(/^(?:#\s*|\/\/\s*|\/\*\s*|<!--\s*)*F:\s*"?([^\s"\n]+)"?\s*(?:\*\/|-->)?$/m);
 
-            // 雙版面強制校驗
             if (currentInputMode === 'full' && content.includes('<<<<<<< OLD')) {
                 errors.push("您在「完整檔」版面貼上了局部替換語法。請切換至「增量/局部替換」分頁。");
                 errorTargets.push(null);
@@ -589,7 +586,9 @@
             
             if (isAppendOnlyFile && oldContent !== null) {
                 const isAppendMode = /^\s*\[APPEND\]/m.test(content);
-                if (!isAppendMode && content.length < 500) {
+                const isPartialMode = content.includes('<<<<<<< OLD');
+                // 局部替換不觸發覆蓋警告
+                if (!isAppendMode && !isPartialMode && content.length < 500) {
                     errors.push(`⚠️ 目標為累積型檔案，但未標記 [APPEND]。若發布將完全覆蓋舊檔。`);
                     errorTargets.push(null);
                 }
@@ -629,17 +628,18 @@
                 } else {
                     const oldStr = patchMatch[1];
                     const newStr = patchMatch[2];
+                    
+                    // 嚴格要求 NEW 區塊必須包含 EOF，不自動補
                     if (!hasValidEof(newStr, filePath)) {
-                        errors.push("局部替換的 NEW 區塊缺少 F/V/W 標記。");
+                        errors.push("局部替換的 NEW 區塊缺少 F/V/W 標記。這會導致無法追蹤修改者，請要求 AI 補齊後重新發布。");
                         errorTargets.push(null);
                     }
-                    if (oldContent) {
-                        if (!oldContent.includes(oldStr)) {
-                            errors.push("找不到要替換的目標字串 (OLD)。請檢查 OLD 內容是否與倉庫一字不差。");
-                            errorTargets.push(null);
-                        } else {
-                            finalContent = oldContent.replace(oldStr, newStr);
-                        }
+                    
+                    if (oldContent && !oldContent.includes(oldStr)) {
+                        errors.push("找不到要替換的目標字串 (OLD)。請檢查 OLD 內容是否與倉庫一字不差。");
+                        errorTargets.push(null);
+                    } else if (oldContent) {
+                        finalContent = oldContent.replace(oldStr, newStr);
                     } else {
                         finalContent = newStr;
                     }
@@ -679,14 +679,20 @@
                 const newPre = document.getElementById('new-content-view');
                 const targetsToHighlight = errorTargets.filter(t => t);
 
+                const oldCharCount = document.getElementById('old-char-count');
+                const newCharCount = document.getElementById('new-char-count');
+
                 if (oldContent !== null) {
                     oldCard.classList.remove('loading');
                     oldPre.innerHTML = highlightText(oldContent, targetsToHighlight);
+                    oldCharCount.textContent = `(${oldContent.length} 字)`;
                 } else {
                     oldCard.classList.add('loading');
                     oldPre.textContent = oldContentStatus || '讀取中…';
+                    oldCharCount.textContent = `(0 字)`;
                 }
                 newPre.innerHTML = highlightText(content, targetsToHighlight);
+                newCharCount.textContent = `(${content.length} 字)`;
 
                 if (repo && filePath && allowedRepos.includes(repo)) forceBtn.style.display = 'block';
             } else {
@@ -701,6 +707,7 @@
                 if (isAppend || isPartial) {
                     previewDiv.style.display = 'block';
                     document.getElementById('preview-content').textContent = finalContent;
+                    document.getElementById('preview-char-count').textContent = `(${finalContent.length} 字)`;
                 } else {
                     previewDiv.style.display = 'none';
                 }
@@ -947,11 +954,17 @@
             
             <div id="compare-cards" style="display:none; margin-bottom:10px;">
                 <div class="compare-card" id="old-content-card">
-                    <div class="compare-card-title">📦 倉庫現有內容（舊檔）</div>
+                    <div class="compare-card-title">
+                        <span>📦 倉庫現有內容（舊檔）</span>
+                        <span id="old-char-count" style="font-weight: normal; color: var(--text-muted);">(0 字)</span>
+                    </div>
                     <pre id="old-content-view"></pre>
                 </div>
                 <div class="compare-card">
-                    <div class="compare-card-title">📝 本次貼上內容（新檔）</div>
+                    <div class="compare-card-title">
+                        <span>📝 本次貼上內容（新檔）</span>
+                        <span id="new-char-count" style="font-weight: normal; color: var(--text-muted);">(0 字)</span>
+                    </div>
                     <pre id="new-content-view"></pre>
                 </div>
             </div>
@@ -968,7 +981,10 @@
             <input type="hidden" id="target-file-path">
             
             <div id="preview-result" style="display:none; margin-bottom:15px;">
-                <div style="font-size:0.85rem; font-weight:bold; color:var(--primary); margin-bottom:5px;">👁️ 發布後的最終檔案預覽（請確認結構無誤）</div>
+                <div style="font-size:0.85rem; font-weight:bold; color:var(--primary); margin-bottom:5px; display: flex; justify-content: space-between;">
+                    <span>👁️ 發布後的最終檔案預覽（請確認結構無誤）</span>
+                    <span id="preview-char-count" style="font-weight: normal; color: var(--text-muted);">(0 字)</span>
+                </div>
                 <pre id="preview-content" style="max-height:200px; overflow-y:auto; font-size:0.75rem; background:#fff; padding:8px; border-radius:5px; border:1px solid var(--border); white-space:pre-wrap;"></pre>
             </div>
 
@@ -1011,6 +1027,6 @@
 </html>
 <!-- ═══ EOF ═══
 F: AI-infra/index.html
-V: 1792931000
+V: 1792931600
 W: ai-system-006
 ═══ -->
