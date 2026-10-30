@@ -32,7 +32,6 @@
         
         input[type="text"], input[type="password"], textarea, select { width: 100%; padding: 12px; border: 1px solid var(--border); border-radius: 8px; font-size: 0.95rem; margin-bottom: 10px; font-family: inherit; }
         
-        /* 鎖定 textarea 的高度，防止被內容撐爆 */
         textarea { resize: vertical; min-height: 150px; max-height: 400px; font-family: monospace; overflow-y: auto; }
         
         button { width: 100%; padding: 12px; border: none; border-radius: 8px; font-size: 1rem; font-weight: bold; cursor: pointer; transition: background-color 0.2s, opacity 0.2s; display: flex; justify-content: center; align-items: center; gap: 8px; }
@@ -54,17 +53,21 @@
         .success-panel { background-color: #ecfdf5; border: 1px solid #a7f3d0; color: #065f46; }
         .error-list { font-size: 0.85rem; margin-bottom: 10px; white-space: pre-wrap; font-family: monospace; }
         
-        /* 雙卡片對比 */
         .compare-card { background: #fff; border: 1px solid var(--border); border-radius: 6px; padding: 8px; margin-bottom: 8px; }
         .compare-card-title { font-size: 0.8rem; font-weight: bold; color: var(--text-muted); margin-bottom: 6px; }
         .compare-card pre { font-size: 0.75rem; line-height: 1.4; white-space: pre-wrap; word-break: break-all; max-height: 300px; overflow-y: auto; font-family: monospace; color: var(--text); background: #f8fafc; padding: 6px; border-radius: 4px; }
-        .compare-card.loading pre { color: var(--text-muted); font-style: italic; }
         
-        /* 高亮樣式 */
         .highlight-error { color: #dc2626; background-color: #fee2e2; font-weight: bold; border-radius: 2px; padding: 0 2px; }
         
         details { margin-bottom: 15px; }
         summary { cursor: pointer; font-weight: bold; padding: 12px 15px; background: #f8fafc; border-radius: 8px; border: 1px solid var(--border); outline: none; display: flex; align-items: center; gap: 8px; }
+
+        /* Tabs 樣式 */
+        .tabs { display: flex; margin-bottom: 15px; border-bottom: 2px solid var(--border); }
+        .tab-btn { flex: 1; padding: 10px; background: none; border: none; border-bottom: 3px solid transparent; font-weight: bold; color: var(--text-muted); cursor: pointer; font-size: 0.95rem; border-radius: 0; }
+        .tab-btn.active { color: var(--primary); border-bottom-color: var(--primary); }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
     </style>
     
     <script>
@@ -89,8 +92,9 @@
         let allowedRepos = [];
         let projectList = [];
 
-        // 舊檔快取：同一輪貼上期間快取，resetUI 清空
         let oldContentCache = {};
+        let previewCache = { finalContent: '', isAppend: false, isPartial: false };
+        let currentInputMode = 'full'; // 'full' or 'patch'
 
         window.onload = async () => {
             loadTokens(); 
@@ -109,6 +113,15 @@
                 navigator.serviceWorker.register('sw.js').catch(err => console.log('SW fail:', err));
             }
         };
+
+        function switchTab(mode) {
+            currentInputMode = mode;
+            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+            
+            document.querySelector(`.tab-btn[data-tab="${mode}"]`).classList.add('active');
+            document.getElementById(`input-${mode}`).classList.add('active');
+        }
 
         async function loadDictionaries() {
             try {
@@ -367,7 +380,6 @@
             }
         }
 
-        // ── 一鍵全量備份 ──
         async function triggerBackup() {
             if (!currentToken) return alert('請先設定 Token');
             if (!confirm('這將備份所有帶有 ai-systems 標籤的倉庫到 AI-Backup，確定嗎？')) return;
@@ -423,7 +435,6 @@
             }
         }
 
-        // ── 取舊檔（含快取）──
         async function fetchOldContent(repo, filePath) {
             const cacheKey = `${repo}/${filePath}`;
             if (oldContentCache.hasOwnProperty(cacheKey)) {
@@ -436,14 +447,11 @@
                     oldContentCache[cacheKey] = content;
                     return content;
                 }
-            } catch (e) {
-                // 404 表示新檔
-            }
+            } catch (e) {}
             oldContentCache[cacheKey] = null;
             return null;
         }
 
-        // ── JSON EOF 檢查 ──
         function hasValidEof(content, filePath) {
             if (filePath && filePath.endsWith('.json')) {
                 try {
@@ -457,54 +465,35 @@
             return eofRegex.test(content);
         }
 
-        // ── HTML 轉義（防 XSS 與破版） ──
         function escapeHTML(str) {
-            return str.replace(/[&<>'"]/g, 
-                tag => ({
-                    '&': '&amp;',
-                    '<': '&lt;',
-                    '>': '&gt;',
-                    "'": '&#39;',
-                    '"': '&quot;'
-                }[tag] || tag)
-            );
+            return str.replace(/[&<>'"]/g, tag => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[tag] || tag));
         }
 
-        // ── 禁用詞高亮（僅用於顯示，不影響源碼） ──
         function highlightText(text, targets) {
             if (text === null || text === undefined) return '';
             let safeText = escapeHTML(text);
             if (!targets || targets.length === 0) return safeText;
-            
-            // 去除重複與 null，並依長度降序排序（避免短詞先匹配長詞的一部分）
             const uniqueTargets = [...new Set(targets)].filter(Boolean).sort((a, b) => b.length - a.length);
-            
             uniqueTargets.forEach(target => {
-                // 轉義正則特殊字元
                 const escapedTarget = target.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
                 const regex = new RegExp(escapedTarget, 'g');
                 const replacement = `<span class="highlight-error">${escapeHTML(target)}</span>`;
                 safeText = safeText.replace(regex, replacement);
             });
-            
             return safeText;
         }
 
-        // ── 標記錯誤 ──
         function markError(msg, target, oldContent) {
             let mark = '';
-            if (oldContent === null) {
-                mark = '〔新檔案〕';
-            } else if (target && oldContent.includes(target)) {
-                mark = '〔既有〕';
-            } else {
-                mark = '〔新增〕';
-            }
+            if (oldContent === null) mark = '〔新檔案〕';
+            else if (target && oldContent.includes(target)) mark = '〔既有〕';
+            else mark = '〔新增〕';
             return `${msg}${mark}`;
         }
 
         async function processFile() {
-            const content = document.getElementById('file-input').value;
+            const inputId = currentInputMode === 'full' ? 'file-input-full' : 'file-input-patch';
+            const content = document.getElementById(inputId).value;
             const errorPanel = document.getElementById('error-panel');
             const successPanel = document.getElementById('success-panel');
             const inputArea = document.getElementById('input-area');
@@ -517,36 +506,25 @@
             if (!content.trim()) return alert('請先貼上內容');
 
             let errors = [];
-            let errorTargets = []; // 平行陣列，記錄每個錯誤對應的被檢出字串
+            let errorTargets = [];
             let repo = "", filePath = "", fullPath = "未知路徑";
             const rules = globalConfig.console_rules || {};
 
-            // 修復：允許註解符號包裹 F: 標記
             let eofMatch = content.match(/(?:#\s*|\/\/\s*|\/\*\s*|<!--\s*)*F:\s*([^\s\n]+)\s*\n(?:#\s*|\/\/\s*|\/\*\s*|<!--\s*)*V:\s*\d+\s*\n(?:#\s*|\/\/\s*|\/\*\s*|<!--\s*)*W:\s*[^\s\n]+/);
             let pathMatch = null;
             
-            if (eofMatch) {
-                pathMatch = eofMatch;
-            } else {
-                // Bug-5 修復：fallback 必須是獨立行，允許註解符號包裹
-                pathMatch = content.match(/^(?:#\s*|\/\/\s*|\/\*\s*|<!--\s*)*F:\s*"?([^\s"\n]+)"?\s*(?:\*\/|-->)?$/m);
+            if (eofMatch) pathMatch = eofMatch;
+            else pathMatch = content.match(/^(?:#\s*|\/\/\s*|\/\*\s*|<!--\s*)*F:\s*"?([^\s"\n]+)"?\s*(?:\*\/|-->)?$/m);
+
+            // 雙版面強制校驗
+            if (currentInputMode === 'full' && content.includes('<<<<<<< OLD')) {
+                errors.push("您在「完整檔」版面貼上了局部替換語法。請切換至「增量/局部替換」分頁。");
+                errorTargets.push(null);
+            } else if (currentInputMode === 'patch' && !content.includes('<<<<<<< OLD') && !/^\s*\[APPEND\]/m.test(content)) {
+                errors.push("您在「增量/局部替換」版面，但內容缺乏 [APPEND] 或 <<<<<<< OLD 標記。");
+                errorTargets.push(null);
             }
 
-            // 防呆：如果是 PARTIAL_REPLACE，NEW 區塊必須包含 EOF
-            if (content.includes('<<<<<<< OLD')) {
-                const patchMatch = content.match(/<<<<<<< OLD\n([\s\S]*?)\n=======\n([\s\S]*?)\n>>>>>>> NEW/);
-                if (!patchMatch) {
-                    errors.push("局部替換格式錯誤：偵測到 <<<<<<< OLD，但缺少 ======= 或 >>>>>>> NEW 標記。為防污染，請退回完整檔或修正局部替換格式。");
-                    errorTargets.push(null);
-                } else {
-                    const newStr = patchMatch[2];
-                    if (!hasValidEof(newStr, null)) {
-                        errors.push("局部替換的 NEW 區塊缺少 F/V/W 標記。這會導致無法追蹤修改者，請要求 AI 補齊後重新發布。");
-                        errorTargets.push(null);
-                    }
-                }
-            }
-            
             if (!pathMatch) {
                 errors.push("找不到 F: 路徑標記。請確認 AI 是否漏寫 EOF。");
                 errorTargets.push(null);
@@ -562,12 +540,11 @@
                     
                     if (!allowedRepos.includes(repo)) {
                         if (repo === 'src' || repo === 'public' || repo === 'functions') {
-                            errors.push(`路徑缺少倉庫前綴：${fullPath}。請確認 AI 是否漏寫了專案倉庫名（如 AI-WA-UPWO/src/...）。`);
+                            errors.push(`路徑缺少倉庫前綴：${fullPath}。`);
                         } else {
-                            errors.push(`未知的倉庫目標：${repo}。請確認是否已在 config/repos.json 中註冊。`);
+                            errors.push(`未知的倉庫目標：${repo}。`);
                         }
                         errorTargets.push(null);
-                        // Bug-6 修復：若非白名單，清空目標，避免強制發布寫錯位置
                         document.getElementById('target-repo').value = '';
                         document.getElementById('target-file-path').value = '';
                         document.getElementById('target-path-display').textContent = `目標：無效（${repo}）`;
@@ -579,69 +556,54 @@
                 }
             }
 
-            // 防呆：如果是 HTML 檔案，檢查是否重複包含 <!DOCTYPE html> 或 <html>
-            // 排除 AI-infra/index.html 自己，避免發布控制台原始碼時被自我攔截
             if (filePath.endsWith('.html') && repo !== 'AI-infra') {
                 const doctypeCount = (content.match(/<!DOCTYPE html>/gi) || []).length;
                 const htmlTagCount = (content.match(/<html/gi) || []).length;
                 if (doctypeCount > 1 || htmlTagCount > 1) {
-                    errors.push(`檔案結構異常：偵測到多個 <!DOCTYPE html> 或 <html> 標籤。這通常是因為局部替換（PARTIAL_REPLACE）時，NEW 區塊的內容貼錯或未閉合。請退回 FULL_FILE 模式重新交付。`);
+                    errors.push(`檔案結構異常：多個 <!DOCTYPE html> 或 <html> 標籤。`);
                     errorTargets.push(null);
                 }
             }
 
             let specificRule = (globalConfig.file_specific_rules && globalConfig.file_specific_rules[`${repo}/${filePath}`]) || {};
-
             let isRecordFile = false;
             if (rules.record_auto_exempt !== false && repo === rules.record_exempt_repo) {
                 const exemptPaths = rules.record_exempt_paths || [];
                 isRecordFile = exemptPaths.some(p => filePath.includes(p));
             }
 
-            const isCodeFile = filePath.endsWith('.js') || filePath.endsWith('.css') || filePath.endsWith('.html') || filePath.endsWith('.py') || filePath.endsWith('.sh') || filePath.endsWith('.json');
-
             let cleanContent = content.replace(/```[\s\S]*?```/g, '').replace(/~~~[\s\S]*?~~~/g, '');
             cleanContent = cleanContent.replace(/「[^」]*」/g, '').replace(/`[^`]*`/g, '');
 
-            // 取舊檔（若非新檔）
             let oldContent = null;
             let oldContentStatus = '';
             if (repo && filePath && allowedRepos.includes(repo)) {
                 oldContent = await fetchOldContent(repo, filePath);
-                if (oldContent === null) {
-                    oldContentStatus = '（新檔案，倉庫無舊版）';
-                }
+                if (oldContent === null) oldContentStatus = '（新檔案，倉庫無舊版）';
             } else {
-                oldContentStatus = '（無法解析路徑或非白名單，無法取得舊檔）';
+                oldContentStatus = '（無法取得舊檔）';
             }
 
-            // 【新增防呆】累積型檔案覆蓋攔截
             const appendOnlyKeywords = ['SYSTEM-DEBT.md', 'SYSTEM-REJECTED.md', 'SYSTEM-ARCHIVE.md', 'GENERAL-CONCLUSION.md', 'SYSTEM-EVOLUTION.md'];
             const isAppendOnlyFile = appendOnlyKeywords.some(kw => filePath.endsWith(kw));
             
             if (isAppendOnlyFile && oldContent !== null) {
                 const isAppendMode = /^\s*\[APPEND\]/m.test(content);
                 if (!isAppendMode && content.length < 500) {
-                    errors.push(`⚠️ 目標為累積型檔案，但未標記 [APPEND]。若發布將完全覆蓋舊檔，確定要繼續嗎？（若這是完整檔，請按強制發布）`);
+                    errors.push(`⚠️ 目標為累積型檔案，但未標記 [APPEND]。若發布將完全覆蓋舊檔。`);
                     errorTargets.push(null);
                 }
             }
 
-            // 統一從 forbidden_words.txt 讀取（含 lazyPatterns 5 條），做字串比對
-            // 不再使用獨立的 lazyPatterns 正則，確保「規則怎麼寫，檢查就怎麼查」
             if (!isRecordFile) {
                 globalForbiddenWords.forEach(word => {
                     if (cleanContent.includes(word)) {
-                        // 「略」需特別處理：避免「忽略」「省略」等正常詞被誤判
-                        // 但依本次規則，白名單已移除，純字串比對
                         errors.push(`發現禁用詞彙或偷懶樣式：「${word}」`);
                         errorTargets.push(word);
                     }
                 });
             }
 
-            // 繁簡檢查（前端暫不啟用，交由 CI 的 zhconv 全量處理）
-            // 若日後 simplified_chars 有值，再啟用此段
             const simplified = globalConfig.simplified_chars || [];
             if (specificRule.check_simplified !== false && simplified.length > 0) {
                 simplified.forEach(word => {
@@ -652,30 +614,69 @@
                 });
             }
 
+            let finalContent = content;
+            let isAppend = false;
+            let isPartial = false;
+
+            const patchRegex = /<<<<<<< OLD\n([\s\S]*?)\n=======\n([\s\S]*?)\n>>>>>>> NEW/;
+            const patchMatch = content.match(patchRegex);
+            
+            if (content.includes('<<<<<<< OLD')) {
+                isPartial = true;
+                if (!patchMatch) {
+                    errors.push("局部替換格式錯誤：缺少 ======= 或 >>>>>>> NEW 標記。");
+                    errorTargets.push(null);
+                } else {
+                    const oldStr = patchMatch[1];
+                    const newStr = patchMatch[2];
+                    if (!hasValidEof(newStr, filePath)) {
+                        errors.push("局部替換的 NEW 區塊缺少 F/V/W 標記。");
+                        errorTargets.push(null);
+                    }
+                    if (oldContent) {
+                        if (!oldContent.includes(oldStr)) {
+                            errors.push("找不到要替換的目標字串 (OLD)。請檢查 OLD 內容是否與倉庫一字不差。");
+                            errorTargets.push(null);
+                        } else {
+                            finalContent = oldContent.replace(oldStr, newStr);
+                        }
+                    } else {
+                        finalContent = newStr;
+                    }
+                }
+            } else if (/^\s*\[APPEND\]/m.test(content) && oldContent) {
+                isAppend = true;
+                let base = oldContent;
+                const eofBlockRegex = /(?:\/\*\s*|<!--\s*|#\s*)*[═=]+\s*EOF\s*[═=]+[\s\S]*?(?:\*\/|-->|#)\s*$/;
+                if (eofBlockRegex.test(base)) base = base.replace(eofBlockRegex, '').trim();
+                else {
+                    const mdEofRegex = /\n*F:\s*[^\n]+\s*\nV:\s*\d+\s*\nW:\s*[^\n]+\s*$/m;
+                    if (mdEofRegex.test(base)) base = base.replace(mdEofRegex, '').trim();
+                }
+                let appendContent = content.replace(/^\s*\[APPEND\]\s*/, '').trim();
+                finalContent = base + "\n\n" + appendContent;
+            }
+
+            if (errors.length === 0 && !hasValidEof(finalContent, filePath)) {
+                errors.push(`替換或追加後的最終結果缺少 EOF (F/V/W)。已終止發布。`);
+                errorTargets.push(null);
+            }
+
             if (errors.length > 0) {
                 errorPanel.style.display = 'block';
                 inputArea.style.display = 'none';
                 
-                let header = "";
-                if (rules.show_file_path_in_error !== false) {
-                    header = (rules.error_header_format || "📄 檔案：{path}\n------------------------\n").replace("{path}", fullPath);
-                }
-
-                // 顯示錯誤列表（含標記）
+                let header = rules.show_file_path_in_error !== false ? (rules.error_header_format || "📄 檔案：{path}\n------------------------\n").replace("{path}", fullPath) : "";
                 let displayErrors = '';
-                errors.forEach((err, i) => {
-                    displayErrors += markError(err, errorTargets[i], oldContent) + '\n';
-                });
+                errors.forEach((err, i) => { displayErrors += markError(err, errorTargets[i], oldContent) + '\n'; });
                 document.getElementById('error-list').textContent = header + displayErrors;
 
-                // 顯示雙卡片
                 const compareCards = document.getElementById('compare-cards');
                 compareCards.style.display = 'block';
 
                 const oldCard = document.getElementById('old-content-card');
                 const oldPre = document.getElementById('old-content-view');
                 const newPre = document.getElementById('new-content-view');
-
                 const targetsToHighlight = errorTargets.filter(t => t);
 
                 if (oldContent !== null) {
@@ -685,41 +686,49 @@
                     oldCard.classList.add('loading');
                     oldPre.textContent = oldContentStatus || '讀取中…';
                 }
-
                 newPre.innerHTML = highlightText(content, targetsToHighlight);
 
-                // Bug-6 修復：只有白名單 repo 且 filePath 有效時才顯示強制發布
-                if (repo && filePath && allowedRepos.includes(repo)) {
-                    forceBtn.style.display = 'block';
-                }
+                if (repo && filePath && allowedRepos.includes(repo)) forceBtn.style.display = 'block';
             } else {
-                successPanel.style.display = 'block';
-                document.getElementById('success-message').textContent = '✅ 體檢通過！請點擊下方按鈕發布。';
+                previewCache = { finalContent, isAppend, isPartial };
+                document.getElementById('success-message').textContent = '✅ 預演成功！請確認下方最終結果。';
                 document.getElementById('btn-publish').style.display = 'block';
+                successPanel.style.display = 'block';
+                inputArea.style.display = 'none';
                 forceBtn.style.display = 'none';
+
+                const previewDiv = document.getElementById('preview-result');
+                if (isAppend || isPartial) {
+                    previewDiv.style.display = 'block';
+                    document.getElementById('preview-content').textContent = finalContent;
+                } else {
+                    previewDiv.style.display = 'none';
+                }
             }
         }
 
         function resetUI() {
-            document.getElementById('file-input').value = '';
+            document.getElementById('file-input-full').value = '';
+            document.getElementById('file-input-patch').value = '';
             document.getElementById('error-panel').style.display = 'none';
             document.getElementById('success-panel').style.display = 'none';
             document.getElementById('input-area').style.display = 'block';
             document.getElementById('btn-publish').style.display = 'none';
             document.getElementById('btn-reset-next').style.display = 'none';
             document.getElementById('compare-cards').style.display = 'none';
+            document.getElementById('preview-result').style.display = 'none';
             
             const btn = document.getElementById('btn-publish');
-            btn.disabled = false; 
-            btn.textContent = '🚀 確認發布到倉庫';
+            btn.disabled = false; btn.textContent = '🚀 確認發布到倉庫';
 
             const forceBtn = document.getElementById('btn-force-publish');
             forceBtn.style.display = 'none';
             forceBtn.disabled = false;
             forceBtn.textContent = '🚨 強制發布（忽略錯誤）';
 
-            // 清空快取
             oldContentCache = {};
+            previewCache = { finalContent: '', isAppend: false, isPartial: false };
+            switchTab('full');
         }
 
         function copyError() {
@@ -734,84 +743,61 @@
             const originalText = targetBtn.textContent;
             targetBtn.disabled = true; targetBtn.textContent = '處理中...';
             
-            let content = document.getElementById('file-input').value;
             const repo = document.getElementById('target-repo').value;
             const filePath = document.getElementById('target-file-path').value;
 
             if (!repo || !filePath) {
-                alert('發布失敗：未指定目標倉庫或路徑（請確認是否在白名單內）。');
+                alert('發布失敗：未指定目標倉庫或路徑。');
                 targetBtn.disabled = false; targetBtn.textContent = originalText;
                 return;
             }
 
             try {
-                let sha = null;
-                let originalContent = "";
-                try {
-                    const existing = await githubAPI(`/repos/${OWNER}/${repo}/contents/${filePath}`);
-                    if (existing && existing.sha) {
-                        sha = existing.sha;
-                        originalContent = decodeURIComponent(escape(atob(existing.content.replace(/\n/g, ''))));
-                    }
-                } catch (e) {
-                    if (!e.message.includes('404') && !e.message.includes('找不到資源')) {
-                        throw e;
-                    }
-                }
+                let finalContent = previewCache.finalContent;
+                let isAppend = previewCache.isAppend;
+                let isPartial = previewCache.isPartial;
 
-                let finalContent = content;
-                let isAppend = false;
-
-                const patchRegex = /<<<<<<< OLD\n([\s\S]*?)\n=======\n([\s\S]*?)\n>>>>>>> NEW/;
-                const patchMatch = content.match(patchRegex);
-                
-                if (content.includes('<<<<<<< OLD')) {
-                    if (!patchMatch) {
-                        throw new Error('偵測到 <<<<<<< OLD 標記，但格式不完整（缺少 ======= 或 >>>>>>> NEW）。為防污染，已拒絕發布。');
-                    }
-                    if (originalContent) {
+                if (!finalContent) {
+                    const inputId = currentInputMode === 'full' ? 'file-input-full' : 'file-input-patch';
+                    const content = document.getElementById(inputId).value;
+                    let oldContent = null;
+                    try {
+                        const existing = await githubAPI(`/repos/${OWNER}/${repo}/contents/${filePath}`);
+                        if (existing && existing.sha) oldContent = decodeURIComponent(escape(atob(existing.content.replace(/\n/g, ''))));
+                    } catch(e) {}
+                    
+                    const patchRegex = /<<<<<<< OLD\n([\s\S]*?)\n=======\n([\s\S]*?)\n>>>>>>> NEW/;
+                    const patchMatch = content.match(patchRegex);
+                    
+                    if (content.includes('<<<<<<< OLD')) {
+                        if (!patchMatch) throw new Error('偵測到 <<<<<<< OLD 標記，但格式不完整。已拒絕發布。');
+                        isPartial = true;
                         const oldStr = patchMatch[1];
                         const newStr = patchMatch[2];
-                        if (!originalContent.includes(oldStr)) {
-                            throw new Error(`找不到要替換的目標字串。`);
-                        }
-                        finalContent = originalContent.replace(oldStr, newStr);
+                        if (oldContent && !oldContent.includes(oldStr)) throw new Error('找不到要替換的目標字串。');
+                        finalContent = oldContent ? oldContent.replace(oldStr, newStr) : newStr;
+                    } else if (/^\s*\[APPEND\]/m.test(content) && oldContent) {
+                        isAppend = true;
+                        let base = oldContent.replace(/(?:\/\*\s*|<!--\s*|#\s*)*[═=]+\s*EOF\s*[═=]+[\s\S]*?(?:\*\/|-->|#)\s*$/, '').trim();
+                        finalContent = base + "\n\n" + content.replace(/^\s*\[APPEND\]\s*/, '').trim();
                     } else {
-                        finalContent = patchMatch[2];
+                        finalContent = content;
                     }
-                } 
-                // Bug-1 修復：使用正則確認為行首標記，防止內文含有 [APPEND] 誤觸發
-                else if (/^\s*\[APPEND\]/m.test(content) && originalContent) {
-                    isAppend = true;
-                    let base = originalContent;
-                    
-                    // Bug-3 & 4 修復：精準抓取檔尾的 EOF 區塊並切除
-                    // 支援 /* ═══ EOF ═══ ... */ 或 <!-- ═══ EOF ═══ ... --> 或 # ═══ EOF ═══ ...
-                    const eofBlockRegex = /(?:\/\*\s*|<!--\s*|#\s*)*[═=]+\s*EOF\s*[═=]+[\s\S]*?(?:\*\/|-->|#)\s*$/;
-                    if (eofBlockRegex.test(base)) {
-                        base = base.replace(eofBlockRegex, '').trim();
-                    } else {
-                        // 若無包圍符號，嘗試找最後一個獨立的 F: 標記（通常為 md 檔）
-                        const mdEofRegex = /\n*F:\s*[^\n]+\s*\nV:\s*\d+\s*\nW:\s*[^\n]+\s*$/m;
-                        if (mdEofRegex.test(base)) {
-                            base = base.replace(mdEofRegex, '').trim();
-                        }
-                    }
-
-                    let appendContent = content.replace(/^\s*\[APPEND\]\s*/, '').trim();
-                    finalContent = base + "\n\n" + appendContent;
                 }
 
-                // 絕對防呆：驗證最終內容是否有 EOF
-                if (!hasValidEof(finalContent, filePath)) {
-                    throw new Error(`發布失敗：替換後的檔案缺少 EOF (F/V/W)。請要求 AI 補齊後重新發布。`);
-                }
+                if (!hasValidEof(finalContent, filePath)) throw new Error(`發布失敗：最終內容缺少 EOF (F/V/W)。`);
 
                 const base64Content = btoa(unescape(encodeURIComponent(finalContent)));
-
                 let commitMsg = `Update ${filePath} via Console`;
                 if (isForce) commitMsg += ' [FORCE]';
                 if (isAppend) commitMsg += ' [APPEND]';
+                if (isPartial) commitMsg += ' [PARTIAL]';
+
+                let sha = null;
+                try {
+                    const existing = await githubAPI(`/repos/${OWNER}/${repo}/contents/${filePath}`);
+                    if (existing && existing.sha) sha = existing.sha;
+                } catch(e) {}
 
                 const body = { message: commitMsg, content: base64Content };
                 if (sha) body.sha = sha;
@@ -828,6 +814,7 @@
                 document.getElementById('error-panel').style.display = 'none';
                 document.getElementById('success-panel').style.display = 'block';
                 document.getElementById('btn-reset-next').style.display = 'block';
+                document.getElementById('preview-result').style.display = 'none';
 
                 hasUnpackedChanges = true;
                 updateStatus('build-status', 'running', '有新檔案！請點擊打包');
@@ -939,7 +926,18 @@
         <div class="card-title">📦 檔案體檢與發布</div>
         
         <div id="input-area">
-            <textarea id="file-input" placeholder="請在此貼上 AI 交付的完整內容..."></textarea>
+            <div class="tabs">
+                <button class="tab-btn active" data-tab="full" onclick="switchTab('full')">📄 完整檔 (FULL)</button>
+                <button class="tab-btn" data-tab="patch" onclick="switchTab('patch')">🩹 增量/替換 (PATCH)</button>
+            </div>
+            
+            <div id="input-full" class="tab-content active">
+                <textarea id="file-input-full" placeholder="請在此貼上 AI 交付的完整檔案內容..."></textarea>
+            </div>
+            <div id="input-patch" class="tab-content">
+                <textarea id="file-input-patch" placeholder="請在此貼上局部替換或增量指令..."></textarea>
+            </div>
+            
             <button class="btn-primary" onclick="processFile()">🔍 檢查並準備發布</button>
         </div>
 
@@ -947,7 +945,6 @@
             <div style="font-weight:bold; margin-bottom:10px;">❌ 檢查未通過</div>
             <div class="error-list" id="error-list"></div>
             
-            <!-- 雙卡片對比 -->
             <div id="compare-cards" style="display:none; margin-bottom:10px;">
                 <div class="compare-card" id="old-content-card">
                     <div class="compare-card-title">📦 倉庫現有內容（舊檔）</div>
@@ -970,6 +967,11 @@
             <input type="hidden" id="target-repo">
             <input type="hidden" id="target-file-path">
             
+            <div id="preview-result" style="display:none; margin-bottom:15px;">
+                <div style="font-size:0.85rem; font-weight:bold; color:var(--primary); margin-bottom:5px;">👁️ 發布後的最終檔案預覽（請確認結構無誤）</div>
+                <pre id="preview-content" style="max-height:200px; overflow-y:auto; font-size:0.75rem; background:#fff; padding:8px; border-radius:5px; border:1px solid var(--border); white-space:pre-wrap;"></pre>
+            </div>
+
             <button class="btn-success" id="btn-publish" onclick="publishFile(false)">🚀 確認發布到倉庫</button>
             <button class="btn-primary" id="btn-reset-next" style="display:none; margin-top:10px;" onclick="resetUI()">📝 繼續貼上下一個檔案</button>
             <button class="btn-primary" style="background:#64748b; margin-top:10px;" onclick="resetUI()">取消</button>
@@ -1009,6 +1011,6 @@
 </html>
 <!-- ═══ EOF ═══
 F: AI-infra/index.html
-V: 1792930500
+V: 1792931000
 W: ai-system-006
 ═══ -->
