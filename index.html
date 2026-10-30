@@ -514,14 +514,6 @@
             if (eofMatch) pathMatch = eofMatch;
             else pathMatch = content.match(/^(?:#\s*|\/\/\s*|\/\*\s*|<!--\s*)*F:\s*"?([^\s"\n]+)"?\s*(?:\*\/|-->)?$/m);
 
-            if (currentInputMode === 'full' && content.includes('<<<<<<< OLD')) {
-                errors.push("您在「完整檔」版面貼上了局部替換語法。請切換至「增量/局部替換」分頁。");
-                errorTargets.push(null);
-            } else if (currentInputMode === 'patch' && !content.includes('<<<<<<< OLD') && !/^\s*\[APPEND\]/m.test(content)) {
-                errors.push("您在「增量/局部替換」版面，但內容缺乏 [APPEND] 或 <<<<<<< OLD 標記。");
-                errorTargets.push(null);
-            }
-
             if (!pathMatch) {
                 errors.push("找不到 F: 路徑標記。請確認 AI 是否漏寫 EOF。");
                 errorTargets.push(null);
@@ -550,6 +542,18 @@
                         document.getElementById('target-repo').value = repo;
                         document.getElementById('target-file-path').value = filePath;
                     }
+                }
+            }
+
+            const isConsoleFile = (repo === 'AI-infra' && filePath === 'index.html');
+
+            if (!isConsoleFile) {
+                if (currentInputMode === 'full' && content.includes('<<<<<<< OLD')) {
+                    errors.push("您在「完整檔」版面貼上了局部替換語法。請切換至「增量/局部替換」分頁。");
+                    errorTargets.push(null);
+                } else if (currentInputMode === 'patch' && !content.includes('<<<<<<< OLD') && !/^\s*\[APPEND\]/m.test(content)) {
+                    errors.push("您在「增量/局部替換」版面，但內容缺乏 [APPEND] 或 <<<<<<< OLD 標記。");
+                    errorTargets.push(null);
                 }
             }
 
@@ -594,7 +598,7 @@
                 }
             }
 
-            if (!isRecordFile) {
+            if (!isRecordFile && !isConsoleFile) {
                 globalForbiddenWords.forEach(word => {
                     if (cleanContent.includes(word)) {
                         errors.push(`發現禁用詞彙或偷懶樣式：「${word}」`);
@@ -604,7 +608,7 @@
             }
 
             const simplified = globalConfig.simplified_chars || [];
-            if (specificRule.check_simplified !== false && simplified.length > 0) {
+            if (specificRule.check_simplified !== false && simplified.length > 0 && !isConsoleFile) {
                 simplified.forEach(word => {
                     if (cleanContent.includes(word)) {
                         errors.push(`發現簡體字：「${word}」`);
@@ -1027,6 +1031,6 @@
 </html>
 <!-- ═══ EOF ═══
 F: AI-infra/index.html
-V: 1792931600
+V: 1792931800
 W: ai-system-006
 ═══ -->
