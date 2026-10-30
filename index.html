@@ -692,6 +692,7 @@
             if (errors.length > 0) {
                 errorPanel.style.display = 'block';
                 inputArea.style.display = 'none';
+                document.getElementById('error-compare').style.display = 'flex';
                 
                 document.getElementById('old-char-count').textContent = `(${oldContent ? oldContent.length : 0} 字)`;
                 document.getElementById('old-content-view').innerHTML = oldContent !== null ? highlightText(oldContent, targetsToHighlight) : oldContentStatus;
