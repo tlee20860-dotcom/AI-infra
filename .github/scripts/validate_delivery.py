@@ -107,10 +107,24 @@ def check_eof(content, filepath):
                 return f"V 欄位不是 10 位數（{m.group(2)}）", m.group(3)
             return None, m.group(3)
         return "缺少 EOF（F/V/W）", "Unknown"
-    else:
-        # 支援程式碼語言的註解
+    elif filepath.endswith(CODE_FILE_EXTS):
+        # 針對程式碼檔案，嚴格檢查禁用裝飾性字符
         tail = content[-500:]
-        m = re.search(r"(?:/\*|#|<!--)\s*[═=]*\s*EOF\s*[═=]*\s*\n?.*?F:\s*([^\s\n]+)\s*\n?.*?V:\s*(\d+)\s*\n?.*?W:\s*([^\s\n]+)", tail, re.S)
+        # 先檢查是否有裝飾性字符導致格式不符
+        strict_m = re.search(r"(?://|/\*|#|<!--)\s*EOF\s*\n?.*?F:\s*([^\s\n]+)\s*\n?.*?V:\s*(\d+)\s*\n?.*?W:\s*([^\s\n]+)", tail, re.S)
+        if strict_m:
+            if len(strict_m.group(2)) != 10:
+                return f"V 欄位不是 10 位數（{strict_m.group(2)}）", strict_m.group(3)
+            return None, strict_m.group(3)
+        
+        # 如果嚴格檢查沒過，檢查是不是因為用了裝飾字符
+        if re.search(r"[═=]+\s*EOF\s*[═=]+", tail):
+            return "程式碼檔案的 EOF 註解區塊禁止使用裝飾性字符（如 ═══），請改用標準註解 /* EOF */ 或 // EOF。", "Unknown"
+        return "缺少註解包裹的 EOF（F/V/W）", "Unknown"
+    else:
+        # 其他檔案（如 .css 以外未列入 CODE_FILE_EXTS 的）維持寬鬆
+        tail = content[-500:]
+        m = re.search(r"(?://|/\*|#|<!--)\s*[═=]*\s*EOF\s*[═=]*\s*\n?.*?F:\s*([^\s\n]+)\s*\n?.*?V:\s*(\d+)\s*\n?.*?W:\s*([^\s\n]+)", tail, re.S)
         if m:
             if len(m.group(2)) != 10:
                 return f"V 欄位不是 10 位數（{m.group(2)}）", m.group(3)
@@ -225,8 +239,9 @@ def main():
 
 if __name__ == "__main__":
     main()
-/* ═══ EOF ═══
-F: AI-infra/.github/scripts/validate_delivery.py
-V: 1792913800
-W: ai-system-005
-═══ */
+
+# ═══ EOF ═══
+# F: AI-infra/.github/scripts/validate_delivery.py
+# V: 1792934400
+# W: ai-system-006
+# ═══ EOF ═══
