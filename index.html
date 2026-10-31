@@ -536,6 +536,16 @@
             if (eofMatch) pathMatch = eofMatch;
             else pathMatch = content.match(/^(?:#\s*|\/\/\s*|\/\*\s*|<!--\s*)*F:\s*"?([^\s"\n]+)"?\s*(?:\*\/|-->)?$/m);
 
+            // 新增：若為 JSON，嘗試解析 _EOF 取得路徑
+            if (!pathMatch && content.trim().startsWith('{')) {
+                try {
+                    const data = JSON.parse(content);
+                    if (data._EOF && data._EOF.F) {
+                        pathMatch = [null, data._EOF.F];
+                    }
+                } catch(e) {}
+            }
+
             if (!pathMatch) {
                 errors.push("找不到 F: 路徑標記。請確認 AI 是否漏寫 EOF。");
                 errorTargets.push(null);
@@ -1079,6 +1089,6 @@
 </html>
 <!-- EOF
 F: AI-infra/index.html
-V: 1792939200
+V: 1792940400
 W: ai-system-007
 EOF -->
