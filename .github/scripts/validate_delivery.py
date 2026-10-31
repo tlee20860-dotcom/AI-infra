@@ -72,9 +72,7 @@ def get_diff_stats():
         return {}
 
 def is_ignored(path, config):
-    # 防自指：永遠忽略配置文件與禁用詞文件本身
-    if path in [CONFIG_PATH, FORBIDDEN_PATH]:
-        return True
+    # 依 R-027 第四款，語法豁免已廢除；forbidden_words.txt 自指干擾由 report 模式容忍，由 Ken 肉眼確認
     for pattern in config.get("ignore_patterns", []):
         if fnmatch.fnmatch(path, pattern):
             return True
@@ -194,7 +192,7 @@ def main():
 
     for path in targets:
         if is_ignored(path, config):
-            print(f"[SKIP] 命中白名單或自指防護：{path}")
+            print(f"[SKIP] 命中白名單：{path}")
             continue
 
         stats = diff_stats.get(path, {})
@@ -240,8 +238,8 @@ def main():
 if __name__ == "__main__":
     main()
 
-# ═══ EOF ═══
+# EOF
 # F: AI-infra/.github/scripts/validate_delivery.py
-# V: 1792934400
-# W: ai-system-006
-# ═══ EOF ═══
+# V: 1792938000
+# W: ai-system-007
+# EOF
