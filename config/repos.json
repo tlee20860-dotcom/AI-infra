@@ -30,6 +30,13 @@
     "code": "UPGRADE",
     "display": "UPGRADE-WO",
     "pkg_no": "92"
+  },
+  {
+    "repo": "tlee20860-dotcom/AI-WA-FS",
+    "domain": "W",
+    "code": "FS",
+    "display": "家庭入帳V3",
+    "pkg_no": "93"
   }
 ]
 }
