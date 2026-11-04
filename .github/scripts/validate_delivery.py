@@ -231,6 +231,11 @@ def main():
             report.append(f"[ERROR] {path} (編寫者: {writer})\n  - {matrix_err}")
             bad += 1
 
+        # 檢查 JSON 檔案是否誤用了局部替換標記
+        if path.endswith(".json") and "<<<<<<< OLD" in content:
+            report.append(f"[ERROR] {path} (編寫者: {writer})\n  - JSON 檔案不支援局部替換標記 (<<<<<<< OLD)，請使用完整檔。")
+            bad += 1
+
         content_errs = check_content_lines(content, path, forbidden_words, specific_rule)
         for err in content_errs:
             report.append(f"[ERROR] {path} (編寫者: {writer})\n  - {err}")
