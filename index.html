@@ -594,6 +594,14 @@
                 }
             }
 
+            // 新增：關聯規則防呆矩陣檢查
+            if (fullPath.startsWith('AI-kernel/docs/r-rules/') || fullPath.startsWith('AI-kernel/docs/a-guide/')) {
+                if (fullPath.endsWith('.md') && !content.includes('<!-- === 關聯規則防呆矩陣 === -->')) {
+                    errors.push("缺少關聯規則防呆矩陣（請依 R-005 規範補齊）。");
+                    errorTargets.push('<!-- === 關聯規則防呆矩陣 === -->');
+                }
+            }
+
             let specificRule = (globalConfig.file_specific_rules && globalConfig.file_specific_rules[`${repo}/${filePath}`]) || {};
             
             // 依 R-027，移除檔案級語法豁免，全檔案一律檢查禁用詞
@@ -1089,6 +1097,6 @@
 </html>
 <!-- EOF
 F: AI-infra/index.html
-V: 1792940400
-W: ai-system-007
+V: 1793010000
+W: ai-system-009
 EOF -->
