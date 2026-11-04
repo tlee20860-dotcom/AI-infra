@@ -19,7 +19,7 @@ CONFIG_PATH = "AI-kernel/docs/r-rules/validate-config.json"
 FORBIDDEN_PATH = "AI-kernel/docs/r-rules/forbidden_words.txt"
 
 # 代碼檔案副檔名清單：這些檔案不做代碼塊跳過，逐行檢查禁用詞
-CODE_FILE_EXTS = (".py", ".js", ".css", ".html", ".yml", ".yaml", ".json", ".sh")
+CODE_FILE_EXTS = (".py", ".js", ".css", ".html", ".yml", ".yaml", ".json", ".sh", ".vue")
 
 DEFAULT_CONFIG = {
     "ignore_patterns": ["external/old-AI-WA-FAMILY/*", "external/AI-OS/*"],
@@ -133,7 +133,7 @@ def check_content_lines(content, filepath, forbidden_words, specific_rule):
     """
     檢查檔案內容。
     - .md 檔案：跳過代碼塊內的檢查（避免規則範例被誤判）
-    - 代碼檔案（.py/.js/.css/.html/.yml/.yaml/.json/.sh）：不跳過，逐行檢查
+    - 代碼檔案（.py/.js/.css/.html/.yml/.yaml/.json/.sh/.vue）：不跳過，逐行檢查
       （因為代碼檔案內的註解與字串也可能含禁用詞，需全量掃描）
     """
     problems = []
@@ -200,7 +200,7 @@ def main():
             report.append(f"[WARN] {path}: 異常減少 {stats['deleted']} 行，且無 [allow-delete] 標記。")
             warn += 1
 
-        if not path.endswith((".md", ".py", ".js", ".css", ".html", ".yml", ".yaml", ".json", ".sh", ".txt")):
+        if not path.endswith((".md", ".py", ".js", ".css", ".html", ".yml", ".yaml", ".json", ".sh", ".txt", ".vue")):
             continue
 
         total += 1
@@ -240,6 +240,6 @@ if __name__ == "__main__":
 
 # EOF
 # F: AI-infra/.github/scripts/validate_delivery.py
-# V: 1792938000
-# W: ai-system-007
+# V: 1793010000
+# W: ai-system-009
 # EOF
