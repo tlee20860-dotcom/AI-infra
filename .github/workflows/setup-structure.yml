@@ -340,7 +340,7 @@ jobs:
               (
                 cd "external/${SAFE_NAME}" || exit 0
                 # 移除 .github 的排除，並加入 .yml 與 .yaml，確保專案 AI 能讀取 CI/CD 腳本
-                find . -type f \( -name "*.js" -o -name "*.html" -o -name "*.css" -o -name "*.json" -o -name "*.yml" -o -name "*.yaml" \) \
+                find . -type f \( -name "*.js" -o -name "*.html" -o -name "*.css" -o -name "*.json" -o -name "*.yml" -o -name "*.yaml" -o -name "*.vue" \) \
                   -not -path "./.git/*" \
                   -not -path "./node_modules/*" \
                   -not -path "./docs/*" | sort | while read -r f; do
@@ -546,6 +546,6 @@ jobs:
 
 # ═══ EOF ═══
 # F: AI-infra/.github/workflows/setup-structure.yml
-# V: 1792913000
-# W: ai-system-005
+# V: 1793010000
+# W: ai-system-009
 # ═══ EOF ═══
