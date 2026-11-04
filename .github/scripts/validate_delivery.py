@@ -129,6 +129,13 @@ def check_eof(content, filepath):
             return None, m.group(3)
         return "缺少註解包裹的 EOF（F/V/W）", "Unknown"
 
+def check_proposal_matrix(content, filepath):
+    if filepath.startswith("AI-kernel/docs/r-rules/") or filepath.startswith("AI-kernel/docs/a-guide/"):
+        if filepath.endswith(".md"):
+            if not re.search(r"<!--\s*===\s*關聯規則防呆矩陣\s*===", content):
+                return "缺少 <!-- === 關聯規則防呆矩陣 === --> 區塊（請依 R-005 規範補齊）"
+    return None
+
 def check_content_lines(content, filepath, forbidden_words, specific_rule):
     """
     檢查檔案內容。
@@ -217,6 +224,11 @@ def main():
         eof_err, writer = check_eof(content, path)
         if eof_err:
             report.append(f"[ERROR] {path} (編寫者: {writer})\n  - {eof_err}")
+            bad += 1
+
+        matrix_err = check_proposal_matrix(content, path)
+        if matrix_err:
+            report.append(f"[ERROR] {path} (編寫者: {writer})\n  - {matrix_err}")
             bad += 1
 
         content_errs = check_content_lines(content, path, forbidden_words, specific_rule)
