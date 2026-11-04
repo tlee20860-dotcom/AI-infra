@@ -500,18 +500,15 @@ Eof(content, filePath) {
             const newLines = newText.split('\n');
             let html = '';
             
-            // 簡易行級 Diff (非嚴格 LCS，採雙指針近似比對)
             let i = 0, j = 0;
             while (i < oldLines.length || j < newLines.length) {
                 if (i < oldLines.length && j < newLines.length && oldLines[i] === newLines[j]) {
                     html += `<span class="diff-line">${escapeHTML(oldLines[i])}</span>`;
                     i++; j++;
                 } else if (j < newLines.length && (i >= oldLines.length || !oldLines.includes(newLines[j]))) {
-                    // 新增行
                     html += `<span class="diff-line diff-add-line">+ ${escapeHTML(newLines[j])}</span>`;
                     j++;
                 } else {
-                    // 刪除行
                     html += `<span class="diff-line diff-del-line">- ${escapeHTML(oldLines[i])}</span>`;
                     i++;
                 }
@@ -535,17 +532,20 @@ Eof(content, filePath) {
             const inputArea = document.getElementById('input-area');
             const forceBtn = document.getElementById('btn-force-publish');
             const depAlert = document.getElementById('dep-alert');
+            const structErrorWarning = document.getElementById('struct-error-warning');
             
             errorPanel.style.display = 'none';
             successPanel.style.display = 'none';
             forceBtn.style.display = 'none';
             depAlert.style.display = 'none';
+            structErrorWarning.style.display = 'none';
 
             if (!content.trim()) return alert('請先貼上內容');
 
             let errors = [];
             let errorTargets = [];
             let repo = "", filePath = "", fullPath = "未知路徑";
+            let isStructuralError = false;
             const rules = globalConfig.console_rules || {};
 
             let eofMatch = content.match(/(?:#\s*|\/\/\s*|\/\*\s*|<!--\s*)*F:\s*([^\s\n]+)\s*\n(?:#\s*|\/\/\s*|\/\*\s*|<!--\s*)*V:\s*\d+\s*\n(?:#\s*|\/\/\s*|\/\*\s*|<!--\s*)*W:\s*[^\s\n]+/);
@@ -566,12 +566,14 @@ Eof(content, filePath) {
             if (!pathMatch) {
                 errors.push("找不到 F: 路徑標記。請確認 AI 是否漏寫 EOF。");
                 errorTargets.push(null);
+                isStructuralError = true;
             } else {
                 fullPath = pathMatch[1];
                 const pathParts = fullPath.split('/');
                 if (pathParts.length < 2) {
                     errors.push(`路徑格式錯誤：${fullPath}。必須包含倉庫名。`);
                     errorTargets.push(null);
+                    isStructuralError = true;
                 } else {
                     repo = pathParts[0];
                     filePath = pathParts.slice(1).join('/');
@@ -583,6 +585,7 @@ Eof(content, filePath) {
                             errors.push(`未知的倉庫目標：${repo}。`);
                         }
                         errorTargets.push(null);
+                        isStructuralError = true;
                         document.getElementById('target-repo').value = '';
                         document.getElementById('target-file-path').value = '';
                         document.getElementById('target-path-display').textContent = `目標：無效（${repo}）`;
@@ -597,14 +600,17 @@ Eof(content, filePath) {
             if (currentInputMode === 'full' && content.includes('<<<<<<< OLD')) {
                 errors.push("您在「完整檔」版面貼上了局部替換語法。請切換至「增量/局部替換」分頁。");
                 errorTargets.push(null);
+                isStructuralError = true;
             } else if (currentInputMode === 'patch' && !content.includes('<<<<<<< OLD') && !/^\s*\[APPEND\]/m.test(content)) {
                 errors.push("您在「增量/局部替換」版面，但內容缺乏 [APPEND] 或 <<<<<<< OLD 標記。");
                 errorTargets.push(null);
+                isStructuralError = true;
             }
 
             if (filePath.endsWith('.json') && content.includes('<<<<<<< OLD')) {
                 errors.push("JSON 檔案不支援局部替換，請使用完整檔 (FULL) 交付。");
                 errorTargets.push(null);
+                isStructuralError = true;
             }
 
             if (filePath.endsWith('.html') && repo !== 'AI-infra') {
@@ -613,11 +619,12 @@ Eof(content, filePath) {
                 if (doctypeCount > 1 || htmlTagCount > 1) {
                     errors.push(`檔案結構異常：多個 <!DOCTYPE html> 或 <html> 標籤。`);
                     errorTargets.push(null);
+                    isStructuralError = true;
                 }
             }
 
             if (fullPath.startsWith('AI-kernel/docs/r-rules/') || fullPath.startsWith('AI-kernel/docs/a-guide/')) {
-                if (fullPath.endsWith('.md') && !content.includes('<!-- === 關聯規則防呆矩陣 === -->')) {
+                if (fullPath.endsWith('.md') && !content.includes('<!-- === 關聯規則防呆矩陣 === -->') && !content.includes('<!-- === 關聯規則防呆矩陣 ===')) {
                     errors.push("缺少關聯規則防呆矩陣（請依 R-005 規範補齊）。");
                     errorTargets.push('<!-- === 關聯規則防呆矩陣 === -->');
                 }
@@ -689,30 +696,25 @@ Eof(content, filePath) {
                 isPartial = true;
                 
                 if (oldContent) {
-                    // 1. 提取新 EOF (從補丁最後面抓)
                     const eofRegex = /(?:\/\*\s*|<!--\s*|#\s*)*[═=]*\s*EOF\s*[═=]*[\s\S]*?(?:\*\/|-->|#)?\s*$/i;
                     let newEofMatch = content.match(eofRegex);
                     let newEofStr = newEofMatch ? newEofMatch[0] : '';
                     
-                    // 2. 移除舊 EOF 與新 EOF，準備進行核心替換
                     let base = oldContent.replace(eofRegex, '').trim();
                     let patchContent = content.replace(eofRegex, '').trim();
                     
-                    // 3. 正規化 ( \r\n -> \n )
                     base = base.replace(/\r\n/g, '\n');
                     
-                    // 4. 執行多重替換 (matchAll)
                     const patchRegex = /<<<<<<< OLD\n([\s\S]*?)\n=======\n([\s\S]*?)\n>>>>>>> NEW/g;
                     let match;
                     let matchCount = 0;
+                    let hasMatchError = false;
                     
-                    // 因 matchAll 需要 ES2020 支援，這裡用正則 exec 迴圈替代以確保相容性
                     while ((match = patchRegex.exec(patchContent)) !== null) {
                         matchCount++;
                         let oldStr = match[1].replace(/\r\n/g, '\n');
                         let newStr = match[2].replace(/\r\n/g, '\n');
                         
-                        // 容錯替換：忽略行尾空白
                         const escapeRegExp = (str) => str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
                         const oldStrPattern = new RegExp(escapeRegExp(oldStr).replace(/\\n/g, '\\s*\\n\\s*'), 'g');
                         
@@ -723,28 +725,33 @@ Eof(content, filePath) {
                         } else {
                             errors.push(`找不到要替換的目標字串 (OLD)：\n${oldStr.substring(0, 50)}...`);
                             errorTargets.push(null);
+                            hasMatchError = true;
+                            isStructuralError = true;
                         }
                     }
                     
                     if (matchCount === 0) {
                         errors.push("局部替換格式錯誤：找不到完整的 OLD/NEW 標記。");
                         errorTargets.push(null);
+                        isStructuralError = true;
                     } else if (!newEofStr) {
                         errors.push("局部替換缺少獨立的 EOF 區塊。");
                         errorTargets.push(null);
-                    } else {
-                        // 5. 縫合新 EOF
+                        isStructuralError = true;
+                    } else if (!hasMatchError) {
                         finalContent = base.trim() + "\n\n" + newEofStr.trim();
                     }
                 } else {
                     errors.push("找不到倉庫舊檔，無法執行局部替換。");
                     errorTargets.push(null);
+                    isStructuralError = true;
                 }
             }
 
             if (errors.length === 0 && !hasValidEof(finalContent, filePath)) {
                 errors.push(`替換或追加後的最終結果缺少 EOF (F/V/W)。已終止發布。`);
                 errorTargets.push(null);
+                isStructuralError = true;
             }
 
             const targetsToHighlight = errorTargets.filter(t => t);
@@ -764,7 +771,12 @@ Eof(content, filePath) {
                 errors.forEach((err, i) => { displayErrors += markError(err, errorTargets[i], oldContent) + '\n'; });
                 document.getElementById('error-list').textContent = header + displayErrors;
 
-                if (repo && filePath && allowedRepos.includes(repo)) forceBtn.style.display = 'block';
+                if (isStructuralError) {
+                    structErrorWarning.style.display = 'block';
+                    forceBtn.style.display = 'none'; // 物理阻斷
+                } else if (repo && filePath && allowedRepos.includes(repo)) {
+                    forceBtn.style.display = 'block';
+                }
             } else {
                 successPanel.style.display = 'block';
                 previewCache = { finalContent, isAppend, isPartial };
@@ -777,7 +789,6 @@ Eof(content, filePath) {
                 const oldLen = oldContent ? oldContent.length : 0;
                 document.getElementById('final-char-count').textContent = `(舊檔 ${oldLen} 字 ➜ 新檔 ${finalContent.length} 字)`;
                 
-                // Diff 視覺化預演
                 if (isPartial && oldContent) {
                     document.getElementById('final-content-view').innerHTML = renderDiff(oldContent, finalContent);
                 } else {
@@ -808,6 +819,7 @@ Eof(content, filePath) {
             document.getElementById('btn-publish').style.display = 'block';
             document.getElementById('btn-force-publish').style.display = 'none';
             document.getElementById('btn-reset-next').style.display = 'none';
+            document.getElementById('struct-error-warning').style.display = 'none';
             
             document.getElementById('error-compare').style.display = 'none';
             document.getElementById('success-compare').style.display = 'none';
@@ -879,6 +891,7 @@ Eof(content, filePath) {
                             const patchRegex = /<<<<<<< OLD\n([\s\S]*?)\n=======\n([\s\S]*?)\n>>>>>>> NEW/g;
                             let match;
                             let matchCount = 0;
+                            let hasMatchError = false;
                             
                             while ((match = patchRegex.exec(patchContent)) !== null) {
                                 matchCount++;
@@ -892,10 +905,18 @@ Eof(content, filePath) {
                                 } else if (base.includes(oldStr)) {
                                     base = base.split(oldStr).join(newStr);
                                 } else {
-                                    if (!isForce) throw new Error(`找不到要替換的目標字串：\n${oldStr.substring(0, 30)}...`);
+                                    hasMatchError = true;
                                 }
                             }
-                            if (matchCount === 0 && !isForce) throw new Error('偵測到 <<<<<<< OLD 標記，但格式不完整。');
+                            
+                            // 物理防線：無論是否強制發布，只要匹配失敗或格式錯誤，直接丟出錯誤，阻斷寫入！
+                            if (matchCount === 0) {
+                                throw new Error('局部替換格式錯誤：找不到完整的 OLD/NEW 標記。禁止發布。');
+                            }
+                            if (hasMatchError) {
+                                throw new Error('找不到要替換的目標字串 (OLD)。禁止發布以免污染源碼。');
+                            }
+                            
                             finalContent = base.trim() + "\n\n" + (newEofStr ? newEofStr.trim() : '');
                         } else {
                             throw new Error("找不到倉庫舊檔，無法執行局部替換。");
@@ -1066,6 +1087,10 @@ Eof(content, filePath) {
         </div>
 
         <div class="error-panel" id="error-panel">
+            <div id="struct-error-warning" style="display:none; background-color:#dc2626; color:white; padding:15px; border-radius:8px; margin-bottom:15px; font-weight:bold; text-align:center; font-size:1.05rem; box-shadow: 0 4px 6px rgba(0,0,0,0.2);">
+                ⚠️ 系統偵測到結構性錯誤（如 OLD 找不到、JSON 誤用補丁）。<br>
+                已物理阻斷發布功能。請修正內容或改用完整檔。
+            </div>
             <div style="font-weight:bold; margin-bottom:10px;">❌ 檢查未通過</div>
             <div class="error-list" id="error-list"></div>
             
