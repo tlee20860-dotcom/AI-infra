@@ -544,8 +544,8 @@ jobs:
             git push
           )
 
-# ═══ EOF ═══
+# EOF
 # F: AI-infra/.github/workflows/setup-structure.yml
 # V: 1793010000
 # W: ai-system-009
-# ═══ EOF ═══
+# EOF
