@@ -462,9 +462,7 @@
             return null;
         }
 
-        function hasValid
-
-Eof(content, filePath) {
+        function hasValidEof(content, filePath) {
             if (filePath && filePath.endsWith('.json')) {
                 try {
                     const data = JSON.parse(content);
