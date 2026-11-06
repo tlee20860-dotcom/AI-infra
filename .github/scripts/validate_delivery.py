@@ -78,7 +78,9 @@ def is_ignored(path, config):
             return True
     return False
 
-def check_eof(content, filepath):
+def check_
+
+eof(content, filepath):
     if filepath.endswith(".json"):
         try:
             data = json.loads(content)
@@ -231,9 +233,9 @@ def main():
             report.append(f"[ERROR] {path} (編寫者: {writer})\n  - {matrix_err}")
             bad += 1
 
-        # 檢查 JSON 檔案是否誤用了局部替換標記
-        if path.endswith(".json") and "<<<<<<< OLD" in content:
-            report.append(f"[ERROR] {path} (編寫者: {writer})\n  - JSON 檔案不支援局部替換標記 (<<<<<<< OLD)，請使用完整檔。")
+        # 嚴格單軌制：檢查是否殘留局部替換標記
+        if "<<<<<<< OLD" in content or ">>>>>>> NEW" in content:
+            report.append(f"[ERROR] {path} (編寫者: {writer})\n  - 檔案內殘留局部替換標記 (<<<<<<< OLD / >>>>>>> NEW)，已全面廢除增量與局部替換。")
             bad += 1
 
         content_errs = check_content_lines(content, path, forbidden_words, specific_rule)
