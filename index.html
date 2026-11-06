@@ -69,6 +69,10 @@
         .tab-btn.active { color: var(--primary); border-bottom-color: var(--primary); }
         .tab-content { display: none; }
         .tab-content.active { display: block; }
+        
+        .rename-input-box { background: #fffbeb; border: 1px solid #fde68a; padding: 10px; border-radius: 8px; margin-bottom: 10px; }
+        .rename-input-box label { font-size: 0.85rem; font-weight: bold; color: #92400e; display: block; margin-bottom: 6px; }
+        .rename-input-box input { margin-bottom: 0; border-color: #fcd34d; background: #fff; }
     </style>
     
     <script>
@@ -104,7 +108,7 @@
         let projectList = [];
 
         let oldContentCache = {};
-        let previewCache = { finalContent: '', isAppend: false, isPartial: false, deleteOldPath: '' };
+        let previewCache = { finalContent: '', deleteOldPath: '' };
         let currentInputMode = 'full';
 
         window.onload = async () => {
@@ -523,9 +527,10 @@
         }
 
         async function processFile() {
-            const inputId = currentInputMode === 'full' ? 'file-input-full' : 'file-input-patch';
+            const inputId = currentInputMode === 'full' ? 'file-input-full' : 'file-input-rename';
             const content = document.getElementById(inputId).value;
-            const deleteOldPathInput = document.getElementById('delete-old-path').value.trim();
+            const deleteOldPathInput = currentInputMode === 'rename' ? document.getElementById('delete-old-path').value.trim() : '';
+            
             const errorPanel = document.getElementById('error-panel');
             const successPanel = document.getElementById('success-panel');
             const inputArea = document.getElementById('input-area');
@@ -540,6 +545,7 @@
             structErrorWarning.style.display = 'none';
 
             if (!content.trim()) return alert('請先貼上內容');
+            if (currentInputMode === 'rename' && !deleteOldPathInput) return alert('重命名模式必須填寫「準備刪除的舊路徑」');
 
             let errors = [];
             let errorTargets = [];
@@ -596,22 +602,6 @@
                 }
             }
 
-            if (currentInputMode === 'full' && content.includes('<<<<<<< OLD')) {
-                errors.push("您在「完整檔」版面貼上了局部替換語法。請確認是否貼錯分頁。");
-                errorTargets.push(null);
-                // 移除 isStructuralError = true; 避免完整檔被阻斷發布
-            } else if (currentInputMode === 'patch' && !content.includes('<<<<<<< OLD') && !/^\s*\[APPEND\]/m.test(content)) {
-                errors.push("您在「增量/局部替換」版面，但內容缺乏 [APPEND] 或 <<<<<<< OLD 標記。");
-                errorTargets.push(null);
-                isStructuralError = true;
-            }
-
-            if (filePath.endsWith('.json') && content.includes('<<<<<<< OLD')) {
-                errors.push("JSON 檔案不支援局部替換，請使用完整檔 (FULL) 交付。");
-                errorTargets.push(null);
-                isStructuralError = true;
-            }
-
             if (filePath.endsWith('.html') && repo !== 'AI-infra') {
                 const doctypeCount = (content.match(/<!DOCTYPE html>/gi) || []).length;
                 const htmlTagCount = (content.match(/<html/gi) || []).length;
@@ -643,18 +633,6 @@
                 oldContentStatus = '（無法取得舊檔）';
             }
 
-            const appendOnlyKeywords = ['SYSTEM-DEBT.md', 'SYSTEM-REJECTED.md', 'SYSTEM-ARCHIVE.md', 'GENERAL-CONCLUSION.md', 'SYSTEM-EVOLUTION.md'];
-            const isAppendOnlyFile = appendOnlyKeywords.some(kw => filePath.endsWith(kw));
-            
-            if (isAppendOnlyFile && oldContent !== null) {
-                const isAppendMode = /^\s*\[APPEND\]/m.test(content);
-                const isPartialMode = content.includes('<<<<<<< OLD');
-                if (!isAppendMode && !isPartialMode && content.length < 500) {
-                    errors.push(`⚠️ 目標為累積型檔案，但未標記 [APPEND]。若發布將完全覆蓋舊檔。`);
-                    errorTargets.push(null);
-                }
-            }
-
             globalForbiddenWords.forEach(word => {
                 if (cleanContent.includes(word)) {
                     errors.push(`發現禁用詞彙或偷懶樣式：「${word}」`);
@@ -672,85 +650,10 @@
                 });
             }
 
-            let finalContent = content;
-            let isAppend = false;
-            let isPartial = false;
-
-            if (/^\s*\[APPEND\]/m.test(content)) {
-                isAppend = true;
-                if (oldContent) {
-                    let base = oldContent;
-                    const eofBlockRegex = /(?:\/\*\s*|<!--\s*|#\s*)*[═=]+\s*EOF\s*[═=]+[\s\S]*?(?:\*\/|-->|#)\s*$/;
-                    if (eofBlockRegex.test(base)) base = base.replace(eofBlockRegex, '').trim();
-                    else {
-                        const mdEofRegex = /\n*F:\s*[^\n]+\s*\nV:\s*\d+\s*\nW:\s*[^\n]+\s*$/m;
-                        if (mdEofRegex.test(base)) base = base.replace(mdEofRegex, '').trim();
-                    }
-                    let appendContent = content.replace(/^\s*\[APPEND\]\s*/, '').trim();
-                    finalContent = base + "\n\n" + appendContent;
-                } else {
-                    finalContent = content.replace(/^\s*\[APPEND\]\s*/, '').trim();
-                }
-            } else if (content.includes('<<<<<<< OLD')) {
-                isPartial = true;
-                
-                if (oldContent) {
-                    const eofRegex = /(?:\/\*\s*|<!--\s*|#\s*)*[═=]*\s*EOF\s*[═=]*[\s\S]*?(?:\*\/|-->|#)?\s*$/i;
-                    let newEofMatch = content.match(eofRegex);
-                    let newEofStr = newEofMatch ? newEofMatch[0] : '';
-                    
-                    let base = oldContent.replace(eofRegex, '').trim();
-                    let patchContent = content.replace(eofRegex, '').trim();
-                    
-                    base = base.replace(/\r\n/g, '\n');
-                    
-                    const patchRegex = /<<<<<<< OLD\n([\s\S]*?)\n=======\n([\s\S]*?)\n>>>>>>> NEW/g;
-                    let match;
-                    let matchCount = 0;
-                    let hasMatchError = false;
-                    
-                    while ((match = patchRegex.exec(patchContent)) !== null) {
-                        matchCount++;
-                        let oldStr = match[1].replace(/\r\n/g, '\n');
-                        let newStr = match[2].replace(/\r\n/g, '\n');
-                        
-                        const escapeRegExp = (str) => str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-                        const oldStrPattern = new RegExp(escapeRegExp(oldStr).replace(/\\n/g, '\\s*\\n\\s*'), 'g');
-                        
-                        if (base.search(oldStrPattern) !== -1) {
-                            base = base.replace(oldStrPattern, newStr);
-                        } else if (base.includes(oldStr)) {
-                            base = base.split(oldStr).join(newStr);
-                        } else {
-                            errors.push(`找不到要替換的目標字串 (OLD)：\n${oldStr.substring(0, 50)}...`);
-                            errorTargets.push(null);
-                            hasMatchError = true;
-                            if (currentInputMode === 'patch') isStructuralError = true;
-                        }
-                    }
-                    
-                    if (matchCount === 0) {
-                        errors.push("局部替換格式錯誤：找不到完整的 OLD/NEW 標記。");
-                        errorTargets.push(null);
-                        if (currentInputMode === 'patch') isStructuralError = true;
-                    } else if (!newEofStr) {
-                        errors.push("局部替換缺少獨立的 EOF 區塊。");
-                        errorTargets.push(null);
-                        if (currentInputMode === 'patch') isStructuralError = true;
-                    } else if (!hasMatchError) {
-                        finalContent = base.trim() + "\n\n" + newEofStr.trim();
-                    }
-                } else {
-                    errors.push("找不到倉庫舊檔，無法執行局部替換。");
-                    errorTargets.push(null);
-                    if (currentInputMode === 'patch') isStructuralError = true;
-                }
-            }
-
-            if (errors.length === 0 && !hasValidEof(finalContent, filePath)) {
-                errors.push(`替換或追加後的最終結果缺少 EOF (F/V/W)。已終止發布。`);
+            if (!hasValidEof(content, filePath)) {
+                errors.push(`內容缺少 EOF (F/V/W)。已終止發布。`);
                 errorTargets.push(null);
-                if (currentInputMode === 'patch') isStructuralError = true;
+                isStructuralError = true;
             }
 
             const targetsToHighlight = errorTargets.filter(t => t);
@@ -772,13 +675,13 @@
 
                 if (isStructuralError) {
                     structErrorWarning.style.display = 'block';
-                    forceBtn.style.display = 'none'; // 物理阻斷
+                    forceBtn.style.display = 'none'; // 結構錯誤絕對不給強制發布
                 } else if (repo && filePath && allowedRepos.includes(repo)) {
                     forceBtn.style.display = 'block';
                 }
             } else {
                 successPanel.style.display = 'block';
-                previewCache = { finalContent, isAppend, isPartial, deleteOldPath: deleteOldPathInput };
+                previewCache = { finalContent: content, deleteOldPath: deleteOldPathInput };
                 
                 document.getElementById('success-compare').style.display = 'flex';
                 
@@ -786,13 +689,8 @@
                 document.getElementById('old-content-view-success').innerHTML = oldContent !== null ? highlightText(oldContent, []) : oldContentStatus;
                 
                 const oldLen = oldContent ? oldContent.length : 0;
-                document.getElementById('final-char-count').textContent = `(舊檔 ${oldLen} 字 ➜ 新檔 ${finalContent.length} 字)`;
-                
-                if (isPartial && oldContent) {
-                    document.getElementById('final-content-view').innerHTML = renderDiff(oldContent, finalContent);
-                } else {
-                    document.getElementById('final-content-view').textContent = finalContent;
-                }
+                document.getElementById('final-char-count').textContent = `(舊檔 ${oldLen} 字 ➜ 新檔 ${content.length} 字)`;
+                document.getElementById('final-content-view').innerHTML = oldContent !== null ? renderDiff(oldContent, content) : content;
 
                 if (deleteOldPathInput) {
                     document.getElementById('target-path-display').innerHTML = `<span style="color:#dc2626; font-weight:bold;">⚠️ 重命名警告：</span> 將發布至 <b>${repo}/${filePath}</b>，並刪除舊檔 <b>${deleteOldPathInput}</b>`;
@@ -814,7 +712,7 @@
 
         function resetUI() {
             document.getElementById('file-input-full').value = '';
-            document.getElementById('file-input-patch').value = '';
+            document.getElementById('file-input-rename').value = '';
             document.getElementById('delete-old-path').value = '';
             document.getElementById('error-panel').style.display = 'none';
             document.getElementById('success-panel').style.display = 'none';
@@ -836,7 +734,7 @@
             forceBtn.textContent = '🚨 強制發布（忽略錯誤）';
 
             oldContentCache = {};
-            previewCache = { finalContent: '', isAppend: false, isPartial: false, deleteOldPath: '' };
+            previewCache = { finalContent: '', deleteOldPath: '' };
             window._currentDeps = null;
             switchTab('full');
         }
@@ -855,7 +753,7 @@
             
             const repo = document.getElementById('target-repo').value;
             const filePath = document.getElementById('target-file-path').value;
-            const deleteOldPath = previewCache.deleteOldPath || document.getElementById('delete-old-path').value.trim();
+            const deleteOldPath = previewCache.deleteOldPath;
 
             if (!repo || !filePath) {
                 alert('發布失敗：未指定目標倉庫或路徑。');
@@ -865,73 +763,9 @@
 
             try {
                 let finalContent = previewCache.finalContent;
-                let isAppend = previewCache.isAppend;
-                let isPartial = previewCache.isPartial;
-
                 if (!finalContent) {
-                    const inputId = currentInputMode === 'full' ? 'file-input-full' : 'file-input-patch';
-                    const content = document.getElementById(inputId).value;
-                    let oldContent = null;
-                    try {
-                        const existing = await githubAPI(`/repos/${OWNER}/${repo}/contents/${filePath}`);
-                        if (existing && existing.sha) oldContent = decodeURIComponent(escape(atob(existing.content.replace(/\n/g, ''))));
-                    } catch(e) {}
-                    
-                    if (/^\s*\[APPEND\]/m.test(content)) {
-                        isAppend = true;
-                        if (oldContent) {
-                            let base = oldContent.replace(/(?:\/\*\s*|<!--\s*|#\s*)*[═=]*\s*EOF\s*[═=]*[\s\S]*?(?:\*\/|-->|#)?\s*$/i, '').trim();
-                            finalContent = base + "\n\n" + content.replace(/^\s*\[APPEND\]\s*/, '').trim();
-                        } else {
-                            finalContent = content.replace(/^\s*\[APPEND\]\s*/, '').trim();
-                        }
-                    } else if (content.includes('<<<<<<< OLD')) {
-                        isPartial = true;
-                        if (oldContent) {
-                            const eofRegex = /(?:\/\*\s*|<!--\s*|#\s*)*[═=]*\s*EOF\s*[═=]*[\s\S]*?(?:\*\/|-->|#)?\s*$/i;
-                            let newEofStr = content.match(eofRegex) ? content.match(eofRegex)[0] : '';
-                            let base = oldContent.replace(eofRegex, '').trim().replace(/\r\n/g, '\n');
-                            let patchContent = content.replace(eofRegex, '').trim();
-                            
-                            const patchRegex = /<<<<<<< OLD\n([\s\S]*?)\n=======\n([\s\S]*?)\n>>>>>>> NEW/g;
-                            let match;
-                            let matchCount = 0;
-                            let hasMatchError = false;
-                            
-                            while ((match = patchRegex.exec(patchContent)) !== null) {
-                                matchCount++;
-                                let oldStr = match[1].replace(/\r\n/g, '\n');
-                                let newStr = match[2].replace(/\r\n/g, '\n');
-                                const escapeRegExp = (str) => str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-                                const oldStrPattern = new RegExp(escapeRegExp(oldStr).replace(/\\n/g, '\\s*\\n\\s*'), 'g');
-                                
-                                if (base.search(oldStrPattern) !== -1) {
-                                    base = base.replace(oldStrPattern, newStr);
-                                } else if (base.includes(oldStr)) {
-                                    base = base.split(oldStr).join(newStr);
-                                } else {
-                                    hasMatchError = true;
-                                }
-                            }
-                            
-                            // 物理防線：只在 PATCH 模式下，若匹配失敗或格式錯誤，直接丟出錯誤，阻斷寫入！
-                            if (currentInputMode === 'patch') {
-                                if (matchCount === 0) {
-                                    throw new Error('局部替換格式錯誤：找不到完整的 OLD/NEW 標記。禁止發布。');
-                                }
-                                if (hasMatchError) {
-                                    throw new Error('找不到要替換的目標字串 (OLD)。禁止發布以免污染源碼。');
-                                }
-                            }
-                            
-                            finalContent = base.trim() + "\n\n" + (newEofStr ? newEofStr.trim() : '');
-                        } else {
-                            if (currentInputMode === 'patch') throw new Error("找不到倉庫舊檔，無法執行局部替換。");
-                            finalContent = content;
-                        }
-                    } else {
-                        finalContent = content;
-                    }
+                    const inputId = currentInputMode === 'full' ? 'file-input-full' : 'file-input-rename';
+                    finalContent = document.getElementById(inputId).value;
                 }
 
                 if (!hasValidEof(finalContent, filePath)) throw new Error(`發布失敗：最終內容缺少 EOF (F/V/W)。`);
@@ -939,8 +773,6 @@
                 const base64Content = btoa(unescape(encodeURIComponent(finalContent)));
                 let commitMsg = `Update ${filePath} via Console`;
                 if (isForce) commitMsg += ' [FORCE]';
-                if (isAppend) commitMsg += ' [APPEND]';
-                if (isPartial) commitMsg += ' [PARTIAL]';
 
                 let sha = null;
                 try {
@@ -1104,19 +936,20 @@
         
         <div id="input-area">
             <div class="tabs">
-                <button class="tab-btn active" data-tab="full" onclick="switchTab('full')">📄 完整檔 (FULL)</button>
-                <button class="tab-btn" data-tab="patch" onclick="switchTab('patch')">🩹 增量/替換 (PATCH)</button>
-            </div>
-            
-            <div style="margin-bottom: 10px;">
-                <input type="text" id="delete-old-path" placeholder="🔄 [選填] 準備刪除的舊路徑 (如 AI-General/docs/p90/90-P-Data.md)">
+                <button class="tab-btn active" data-tab="full" onclick="switchTab('full')">📄 常規發布 (FULL)</button>
+                <button class="tab-btn" data-tab="rename" onclick="switchTab('rename')">🔄 重命名發布 (RENAME)</button>
             </div>
             
             <div id="input-full" class="tab-content active">
                 <textarea id="file-input-full" placeholder="請在此貼上 AI 交付的完整檔案內容..."></textarea>
             </div>
-            <div id="input-patch" class="tab-content">
-                <textarea id="file-input-patch" placeholder="請在此貼上局部替換或增量指令..."></textarea>
+            
+            <div id="input-rename" class="tab-content">
+                <div class="rename-input-box">
+                    <label>⚠️ 準備刪除的舊路徑 (必填，如 AI-General/docs/p90/90-P-Data.md)</label>
+                    <input type="text" id="delete-old-path" placeholder="在此貼上舊路徑，發布成功後會自動刪除">
+                </div>
+                <textarea id="file-input-rename" placeholder="請在此貼上新檔案的完整內容..."></textarea>
             </div>
             
             <button class="btn-primary" onclick="processFile()">🔍 檢查並準備發布</button>
@@ -1124,8 +957,8 @@
 
         <div class="error-panel" id="error-panel">
             <div id="struct-error-warning" style="display:none; background-color:#dc2626; color:white; padding:15px; border-radius:8px; margin-bottom:15px; font-weight:bold; text-align:center; font-size:1.05rem; box-shadow: 0 4px 6px rgba(0,0,0,0.2);">
-                ⚠️ 系統偵測到結構性錯誤（如 OLD 找不到、JSON 誤用補丁）。<br>
-                已物理阻斷發布功能。請修正內容或改用完整檔。
+                ⚠️ 系統偵測到結構性錯誤。<br>
+                已物理阻斷發布功能。請修正內容。
             </div>
             <div style="font-weight:bold; margin-bottom:10px;">❌ 檢查未通過</div>
             <div class="error-list" id="error-list"></div>
