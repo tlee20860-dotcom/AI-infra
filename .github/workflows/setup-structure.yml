@@ -297,7 +297,7 @@ jobs:
             echo "# 專案狀態包：${SAFE_NAME}" >> "$OUTPUT"
             echo "" >> "$OUTPUT"
 
-            # 打包進度與技術檔 (使用 *P-*.md 匹配)
+            # 打包進度與技術檔 (過渡期相容 WF-*.md 與 *P-*.md)
             for f in "$PROJ_DIR"/WF-*.md "$PROJ_DIR"/*P-*.md; do
               if [ -f "$f" ]; then bash .github/workflows/append_file.sh "$f" "$OUTPUT" || true; fi
             done
@@ -313,7 +313,7 @@ jobs:
             OUTPUT_P="build-repo/${PKG_NO}-P.md"
             OUTPUT_CODE="build-repo/${PKG_NO}-Code.md"
 
-            # 防呆：專案技術檔 (P)
+            # 防呆：專案技術檔 (過渡期相容 WF-*.md 與 *P-*.md)
             PROJ_DIR="AI-General/docs/p${PKG_NO}"
             if [ -d "$PROJ_DIR" ]; then
               echo "> 體系版本：${{ env.SYS_VER }}" > "$OUTPUT_P"
@@ -322,8 +322,8 @@ jobs:
               echo "# 專案技術總集：${SAFE_NAME}" >> "$OUTPUT_P"
               echo "" >> "$OUTPUT_P"
               
-              # 打包 P 檔至專案技術包 (使用 *P-*.md 匹配)
-              for f in "$PROJ_DIR"/*P-*.md; do
+              # 打包 WF 檔與舊 P 檔至專案技術包
+              for f in "$PROJ_DIR"/WF-*.md "$PROJ_DIR"/*P-*.md; do
                 if [ -f "$f" ]; then bash .github/workflows/append_file.sh "$f" "$OUTPUT_P" || true; fi
               done
             else
@@ -421,6 +421,18 @@ jobs:
 
           for f in $SRC_FILES; do
             bash .github/workflows/append_file.sh "$f" "$OUTPUT" || { rm -f "$OUTPUT"; exit 1; }
+          done
+
+          # 打包專案歷史 (WF-EVOLUTION.md)
+          jq -c '.[]' /tmp/projects.json | while read -r row; do
+            PKG_NO=$(echo "$row" | jq -r '.pkg_no')
+            PROJ_DIR="AI-General/docs/p${PKG_NO}"
+            EVO_FILE="${PROJ_DIR}/WF-EVOLUTION.md"
+            if [ -f "$EVO_FILE" ]; then
+              echo "## 📦 專案歷史：${PKG_NO}" >> "$OUTPUT"
+              bash .github/workflows/append_file.sh "$EVO_FILE" "$OUTPUT" || true
+              echo "" >> "$OUTPUT"
+            fi
           done
 
       - name: "Step 9.4: 生成全庫總索引 (25-INDEX.md)"
@@ -546,6 +558,6 @@ jobs:
 
 # EOF
 # F: AI-infra/.github/workflows/setup-structure.yml
-# V: 1793010000
+# V: 1793951000
 # W: ai-system-009
 # EOF
