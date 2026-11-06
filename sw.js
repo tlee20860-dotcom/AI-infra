@@ -62,8 +62,8 @@ self.addEventListener('fetch', (event) => {
   );
 });
 
-/* ═══ EOF ═══
+/* EOF
 F: AI-infra/sw.js
-V: 1793010000
+V: 1793949000
 W: ai-system-009
-═══ */
+EOF */
