@@ -597,9 +597,9 @@
             }
 
             if (currentInputMode === 'full' && content.includes('<<<<<<< OLD')) {
-                errors.push("您在「完整檔」版面貼上了局部替換語法。請切換至「增量/局部替換」分頁。");
+                errors.push("您在「完整檔」版面貼上了局部替換語法。請確認是否貼錯分頁。");
                 errorTargets.push(null);
-                isStructuralError = true;
+                // 移除 isStructuralError = true; 避免完整檔被阻斷發布
             } else if (currentInputMode === 'patch' && !content.includes('<<<<<<< OLD') && !/^\s*\[APPEND\]/m.test(content)) {
                 errors.push("您在「增量/局部替換」版面，但內容缺乏 [APPEND] 或 <<<<<<< OLD 標記。");
                 errorTargets.push(null);
@@ -725,32 +725,32 @@
                             errors.push(`找不到要替換的目標字串 (OLD)：\n${oldStr.substring(0, 50)}...`);
                             errorTargets.push(null);
                             hasMatchError = true;
-                            isStructuralError = true;
+                            if (currentInputMode === 'patch') isStructuralError = true;
                         }
                     }
                     
                     if (matchCount === 0) {
                         errors.push("局部替換格式錯誤：找不到完整的 OLD/NEW 標記。");
                         errorTargets.push(null);
-                        isStructuralError = true;
+                        if (currentInputMode === 'patch') isStructuralError = true;
                     } else if (!newEofStr) {
                         errors.push("局部替換缺少獨立的 EOF 區塊。");
                         errorTargets.push(null);
-                        isStructuralError = true;
+                        if (currentInputMode === 'patch') isStructuralError = true;
                     } else if (!hasMatchError) {
                         finalContent = base.trim() + "\n\n" + newEofStr.trim();
                     }
                 } else {
                     errors.push("找不到倉庫舊檔，無法執行局部替換。");
                     errorTargets.push(null);
-                    isStructuralError = true;
+                    if (currentInputMode === 'patch') isStructuralError = true;
                 }
             }
 
             if (errors.length === 0 && !hasValidEof(finalContent, filePath)) {
                 errors.push(`替換或追加後的最終結果缺少 EOF (F/V/W)。已終止發布。`);
                 errorTargets.push(null);
-                isStructuralError = true;
+                if (currentInputMode === 'patch') isStructuralError = true;
             }
 
             const targetsToHighlight = errorTargets.filter(t => t);
@@ -914,17 +914,20 @@
                                 }
                             }
                             
-                            // 物理防線：無論是否強制發布，只要匹配失敗或格式錯誤，直接丟出錯誤，阻斷寫入！
-                            if (matchCount === 0) {
-                                throw new Error('局部替換格式錯誤：找不到完整的 OLD/NEW 標記。禁止發布。');
-                            }
-                            if (hasMatchError) {
-                                throw new Error('找不到要替換的目標字串 (OLD)。禁止發布以免污染源碼。');
+                            // 物理防線：只在 PATCH 模式下，若匹配失敗或格式錯誤，直接丟出錯誤，阻斷寫入！
+                            if (currentInputMode === 'patch') {
+                                if (matchCount === 0) {
+                                    throw new Error('局部替換格式錯誤：找不到完整的 OLD/NEW 標記。禁止發布。');
+                                }
+                                if (hasMatchError) {
+                                    throw new Error('找不到要替換的目標字串 (OLD)。禁止發布以免污染源碼。');
+                                }
                             }
                             
                             finalContent = base.trim() + "\n\n" + (newEofStr ? newEofStr.trim() : '');
                         } else {
-                            throw new Error("找不到倉庫舊檔，無法執行局部替換。");
+                            if (currentInputMode === 'patch') throw new Error("找不到倉庫舊檔，無法執行局部替換。");
+                            finalContent = content;
                         }
                     } else {
                         finalContent = content;
