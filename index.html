@@ -104,7 +104,7 @@
         let projectList = [];
 
         let oldContentCache = {};
-        let previewCache = { finalContent: '', isAppend: false, isPartial: false };
+        let previewCache = { finalContent: '', isAppend: false, isPartial: false, deleteOldPath: '' };
         let currentInputMode = 'full';
 
         window.onload = async () => {
@@ -525,6 +525,7 @@
         async function processFile() {
             const inputId = currentInputMode === 'full' ? 'file-input-full' : 'file-input-patch';
             const content = document.getElementById(inputId).value;
+            const deleteOldPathInput = document.getElementById('delete-old-path').value.trim();
             const errorPanel = document.getElementById('error-panel');
             const successPanel = document.getElementById('success-panel');
             const inputArea = document.getElementById('input-area');
@@ -777,7 +778,7 @@
                 }
             } else {
                 successPanel.style.display = 'block';
-                previewCache = { finalContent, isAppend, isPartial };
+                previewCache = { finalContent, isAppend, isPartial, deleteOldPath: deleteOldPathInput };
                 
                 document.getElementById('success-compare').style.display = 'flex';
                 
@@ -791,6 +792,10 @@
                     document.getElementById('final-content-view').innerHTML = renderDiff(oldContent, finalContent);
                 } else {
                     document.getElementById('final-content-view').textContent = finalContent;
+                }
+
+                if (deleteOldPathInput) {
+                    document.getElementById('target-path-display').innerHTML = `<span style="color:#dc2626; font-weight:bold;">⚠️ 重命名警告：</span> 將發布至 <b>${repo}/${filePath}</b>，並刪除舊檔 <b>${deleteOldPathInput}</b>`;
                 }
 
                 if (DEPENDENCY_MAP[fullPath]) {
@@ -810,6 +815,7 @@
         function resetUI() {
             document.getElementById('file-input-full').value = '';
             document.getElementById('file-input-patch').value = '';
+            document.getElementById('delete-old-path').value = '';
             document.getElementById('error-panel').style.display = 'none';
             document.getElementById('success-panel').style.display = 'none';
             document.getElementById('dep-alert').style.display = 'none';
@@ -830,7 +836,7 @@
             forceBtn.textContent = '🚨 強制發布（忽略錯誤）';
 
             oldContentCache = {};
-            previewCache = { finalContent: '', isAppend: false, isPartial: false };
+            previewCache = { finalContent: '', isAppend: false, isPartial: false, deleteOldPath: '' };
             window._currentDeps = null;
             switchTab('full');
         }
@@ -849,6 +855,7 @@
             
             const repo = document.getElementById('target-repo').value;
             const filePath = document.getElementById('target-file-path').value;
+            const deleteOldPath = previewCache.deleteOldPath || document.getElementById('delete-old-path').value.trim();
 
             if (!repo || !filePath) {
                 alert('發布失敗：未指定目標倉庫或路徑。');
@@ -941,14 +948,38 @@
                 const body = { message: commitMsg, content: base64Content };
                 if (sha) body.sha = sha;
 
+                // 1. 發布新檔
                 await githubAPI(`/repos/${OWNER}/${repo}/contents/${filePath}`, {
                     method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body)
                 });
 
+                // 2. 刪除舊檔（如果有填寫）
+                let deleteStatus = '';
+                if (deleteOldPath) {
+                    const oldParts = deleteOldPath.split('/');
+                    if (oldParts.length >= 2) {
+                        const oldRepo = oldParts[0];
+                        const oldFilePath = oldParts.slice(1).join('/');
+                        try {
+                            const oldExisting = await githubAPI(`/repos/${OWNER}/${oldRepo}/contents/${oldFilePath}`);
+                            if (oldExisting && oldExisting.sha) {
+                                await githubAPI(`/repos/${OWNER}/${oldRepo}/contents/${oldFilePath}`, {
+                                    method: 'DELETE', 
+                                    headers: { 'Content-Type': 'application/json' }, 
+                                    body: JSON.stringify({ message: `Delete old file: ${oldFilePath}`, sha: oldExisting.sha })
+                                });
+                                deleteStatus = `<br><span style="font-size:0.85rem; color:#047857;">🗑️ 已成功刪除舊檔：${deleteOldPath}</span>`;
+                            }
+                        } catch (err) {
+                            deleteStatus = `<br><span style="font-size:0.85rem; color:#b91c1c;">⚠️ 新檔已發布，但刪除舊檔失敗：${err.message}</span>`;
+                        }
+                    }
+                }
+
                 const timeStr = new Date().toLocaleTimeString('zh-TW', { hour12: false });
                 const forceTag = isForce ? '（強制發布）' : '';
                 
-                document.getElementById('success-message').innerHTML = `🎉 已成功寫入${forceTag}：<br><b>${repo}/${filePath}</b><br><span style="font-size:0.85rem; color:#047857; font-weight:normal;">⏱️ 寫入時間：${timeStr}</span>`;
+                document.getElementById('success-message').innerHTML = `🎉 已成功寫入${forceTag}：<br><b>${repo}/${filePath}</b>${deleteStatus}<br><span style="font-size:0.85rem; color:#047857; font-weight:normal;">⏱️ 寫入時間：${timeStr}</span>`;
                 
                 document.getElementById('btn-publish').style.display = 'none';
                 document.getElementById('btn-force-publish').style.display = 'none';
@@ -1072,6 +1103,10 @@
             <div class="tabs">
                 <button class="tab-btn active" data-tab="full" onclick="switchTab('full')">📄 完整檔 (FULL)</button>
                 <button class="tab-btn" data-tab="patch" onclick="switchTab('patch')">🩹 增量/替換 (PATCH)</button>
+            </div>
+            
+            <div style="margin-bottom: 10px;">
+                <input type="text" id="delete-old-path" placeholder="🔄 [選填] 準備刪除的舊路徑 (如 AI-General/docs/p90/90-P-Data.md)">
             </div>
             
             <div id="input-full" class="tab-content active">
