@@ -65,6 +65,13 @@
         
         details { margin-bottom: 15px; }
         summary { cursor: pointer; font-weight: bold; padding: 12px 15px; background: #f8fafc; border-radius: 8px; border: 1px solid var(--border); outline: none; display: flex; align-items: center; gap: 8px; }
+
+        /* 主分頁樣式 */
+        .main-tabs { display: flex; margin-bottom: 15px; border-bottom: 2px solid var(--border); }
+        .main-tab-btn { flex: 1; padding: 12px; background: none; border: none; border-bottom: 3px solid transparent; font-weight: bold; color: var(--text-muted); cursor: pointer; font-size: 1rem; border-radius: 0; }
+        .main-tab-btn.active { color: var(--primary); border-bottom-color: var(--primary); }
+        .main-tab-content { display: none; }
+        .main-tab-content.active { display: block; }
     </style>
     
     <script>
@@ -120,6 +127,13 @@
             }
         };
 
+        function switchMainTab(tabId) {
+            document.querySelectorAll('.main-tab-btn').forEach(btn => btn.classList.remove('active'));
+            document.querySelectorAll('.main-tab-content').forEach(content => content.classList.remove('active'));
+            document.querySelector(`.main-tab-btn[data-tab="${tabId}"]`).classList.add('active');
+            document.getElementById(`tab-${tabId}`).classList.add('active');
+        }
+
         async function loadDictionaries() {
             try {
                 const txtRes = await fetch(`${FORBIDDEN_URL}?t=${Date.now()}`);
@@ -142,16 +156,23 @@
                     if (reposData.projects) {
                         projectList = reposData.projects;
                         const deploySelect = document.getElementById('deploy-repo-select');
+                        const linkSelect = document.getElementById('quick-link-project-select');
                         deploySelect.innerHTML = '';
+                        linkSelect.innerHTML = '';
                         projectList.forEach(p => {
                             const repoName = p.repo.split('/')[1];
                             if (repoName && !allowedRepos.includes(repoName)) {
                                 allowedRepos.push(repoName);
                             }
-                            const opt = document.createElement('option');
-                            opt.value = repoName;
-                            opt.textContent = `${p.display} (${repoName})`;
-                            deploySelect.appendChild(opt);
+                            const opt1 = document.createElement('option');
+                            opt1.value = repoName;
+                            opt1.textContent = `${p.display} (${repoName})`;
+                            deploySelect.appendChild(opt1);
+
+                            const opt2 = document.createElement('option');
+                            opt2.value = p.pkg_no;
+                            opt2.textContent = `p${p.pkg_no} (${p.code})`;
+                            linkSelect.appendChild(opt2);
                         });
                     }
                 }
@@ -240,6 +261,27 @@
                 throw new Error(errMsg);
             }
             return res.status === 204 ? null : await res.json();
+        }
+
+        function copySystemLinks() {
+            const base = `https://raw.githubusercontent.com/${OWNER}/AI-packages/main/`;
+            const text = `請讀取以下體系檔案：\n\n` +
+                         `[00-IP.md] ${base}00-IP.md\n` +
+                         `[01-AP.md] ${base}01-AP.md\n` +
+                         `[02-RP.md] ${base}02-RP.md\n` +
+                         `[03-UP.md] ${base}03-UP.md\n` +
+                         `[20-SP-Sys.md] ${base}20-SP-Sys.md`;
+            navigator.clipboard.writeText(text).then(() => alert('已複製體系連結清單'));
+        }
+
+        function copyProjectLinks() {
+            const pkgNo = document.getElementById('quick-link-project-select').value;
+            if (!pkgNo) return alert('請選擇專案');
+            const base = `https://raw.githubusercontent.com/${OWNER}/AI-packages/main/`;
+            const text = `請讀取以下專案檔案：\n\n` +
+                         `[專案狀態包] ${base}${pkgNo}-SP.md\n` +
+                         `[專案代碼包] ${base}${pkgNo}-Code.md`;
+            navigator.clipboard.writeText(text).then(() => alert('已複製專案連結清單'));
         }
 
         async function triggerBuild() {
@@ -905,9 +947,18 @@
 <div class="container">
     
     <div class="sticky-header">
-        <div class="card">
+        <div class="card" style="margin-bottom: 0; padding-bottom: 5px;">
             <div class="card-title">🚀 AI 控制台</div>
             <div class="subtitle">極簡發布與打包中心</div>
+            <div class="main-tabs">
+                <button class="main-tab-btn active" data-tab="publish" onclick="switchMainTab('publish')">📦 發布與打包</button>
+                <button class="main-tab-btn" data-tab="system" onclick="switchMainTab('system')">⚙️ 系統管理</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="tab-publish" class="main-tab-content active">
+        <div class="card">
             <button class="btn-primary" id="btn-trigger" onclick="triggerBuild()">▶️ 打包</button>
             <div class="status-box">
                 <div class="status-dot" id="build-status-dot"></div>
@@ -937,127 +988,142 @@
                 </div>
             </div>
         </div>
-    </div>
 
-    <div class="card">
-        <div class="card-title">📦 新增／更新完整檔案</div>
-        
-        <div id="input-area">
-            <textarea id="file-input-full" placeholder="請在此貼上 AI 交付的完整檔案內容..."></textarea>
-            <button class="btn-primary" onclick="processFile()">🔍 檢查並準備發布</button>
-        </div>
-
-        <div class="error-panel" id="error-panel">
-            <div id="struct-error-warning" style="display:none; background-color:#dc2626; color:white; padding:15px; border-radius:8px; margin-bottom:15px; font-weight:bold; text-align:center; font-size:1.05rem; box-shadow: 0 4px 6px rgba(0,0,0,0.2);">
-                ⚠️ 系統偵測到結構性錯誤。<br>
-                已物理阻斷發布功能。請修正內容。
-            </div>
-            <div style="font-weight:bold; margin-bottom:10px;">❌ 檢查未通過</div>
-            <div class="error-list" id="error-list"></div>
+        <div class="card">
+            <div class="card-title">📦 新增／更新完整檔案</div>
             
-            <div id="error-compare" class="compare-container" style="display:none;">
-                <div class="compare-card">
-                    <div class="compare-card-title">
-                        <span>📦 舊檔</span>
-                        <span class="char-count" id="old-char-count">(0 字)</span>
-                    </div>
-                    <pre id="old-content-view"></pre>
-                </div>
-                <div class="compare-card">
-                    <div class="compare-card-title">
-                        <span>📝 新檔</span>
-                        <span class="char-count" id="new-char-count">(0 字)</span>
-                    </div>
-                    <pre id="new-content-view"></pre>
-                </div>
+            <div id="input-area">
+                <textarea id="file-input-full" placeholder="請在此貼上 AI 交付的完整檔案內容..."></textarea>
+                <button class="btn-primary" onclick="processFile()">🔍 檢查並準備發布</button>
             </div>
-            
-            <button class="btn-primary" style="background:#ef4444; margin-bottom:10px;" onclick="copyError()">📋 一鍵複製錯誤訊息</button>
-            <button class="btn-primary" style="background:#64748b;" onclick="resetUI()">🔄 清除並重新貼上</button>
-            <button class="btn-danger" id="btn-force-publish" style="display:none; margin-top:10px; background:#991b1b;" onclick="publishFile(true)">🚨 強制發布（忽略錯誤）</button>
+
+            <div class="error-panel" id="error-panel">
+                <div id="struct-error-warning" style="display:none; background-color:#dc2626; color:white; padding:15px; border-radius:8px; margin-bottom:15px; font-weight:bold; text-align:center; font-size:1.05rem; box-shadow: 0 4px 6px rgba(0,0,0,0.2);">
+                    ⚠️ 系統偵測到結構性錯誤。<br>
+                    已物理阻斷發布功能。請修正內容。
+                </div>
+                <div style="font-weight:bold; margin-bottom:10px;">❌ 檢查未通過</div>
+                <div class="error-list" id="error-list"></div>
+                
+                <div id="error-compare" class="compare-container" style="display:none;">
+                    <div class="compare-card">
+                        <div class="compare-card-title">
+                            <span>📦 舊檔</span>
+                            <span class="char-count" id="old-char-count">(0 字)</span>
+                        </div>
+                        <pre id="old-content-view"></pre>
+                    </div>
+                    <div class="compare-card">
+                        <div class="compare-card-title">
+                            <span>📝 新檔</span>
+                            <span class="char-count" id="new-char-count">(0 字)</span>
+                        </div>
+                        <pre id="new-content-view"></pre>
+                    </div>
+                </div>
+                
+                <button class="btn-primary" style="background:#ef4444; margin-bottom:10px;" onclick="copyError()">📋 一鍵複製錯誤訊息</button>
+                <button class="btn-primary" style="background:#64748b;" onclick="resetUI()">🔄 清除並重新貼上</button>
+                <button class="btn-danger" id="btn-force-publish" style="display:none; margin-top:10px; background:#991b1b;" onclick="publishFile(true)">🚨 強制發布（忽略錯誤）</button>
+            </div>
+
+            <div class="success-panel" id="success-panel">
+                <div style="font-weight:bold; margin-bottom:10px;" id="success-message">✅ 體檢通過！</div>
+                <div style="font-size:0.85rem; margin-bottom:15px; font-family:monospace; background:#fff; padding:8px; border-radius:5px;" id="target-path-display"></div>
+                <input type="hidden" id="target-repo">
+                <input type="hidden" id="target-file-path">
+                
+                <div id="success-compare" class="compare-container" style="display:none;">
+                    <div class="compare-card">
+                        <div class="compare-card-title">
+                            <span>📦 舊檔</span>
+                            <span class="char-count" id="old-char-count-success">(0 字)</span>
+                        </div>
+                        <pre id="old-content-view-success"></pre>
+                    </div>
+                    <div class="compare-card">
+                        <div class="compare-card-title">
+                            <span>✅ 最終結果</span>
+                            <span class="char-count" id="final-char-count">(0 字)</span>
+                        </div>
+                        <pre id="final-content-view"></pre>
+                    </div>
+                </div>
+
+                <div id="dep-alert" class="dep-alert">
+                    <div class="dep-alert-title">⚠️ 連動更新提醒</div>
+                    <div>此檔案有依賴其他檔案，請複製下方指令貼回對話，由 AI 為您處理後續更新。</div>
+                    <button class="dep-alert-btn" onclick="copyDepCommand()">📋 一鍵複製連動指令</button>
+                </div>
+
+                <button class="btn-success" id="btn-publish" onclick="publishFile(false)">🚀 確認發布到倉庫</button>
+                <button class="btn-primary" id="btn-reset-next" style="display:none; margin-top:10px;" onclick="resetUI()">📝 繼續貼上下一個檔案</button>
+                <button class="btn-primary" style="background:#64748b; margin-top:10px;" onclick="resetUI()">取消</button>
+            </div>
         </div>
 
-        <div class="success-panel" id="success-panel">
-            <div style="font-weight:bold; margin-bottom:10px;" id="success-message">✅ 體檢通過！</div>
-            <div style="font-size:0.85rem; margin-bottom:15px; font-family:monospace; background:#fff; padding:8px; border-radius:5px;" id="target-path-display"></div>
-            <input type="hidden" id="target-repo">
-            <input type="hidden" id="target-file-path">
-            
-            <div id="success-compare" class="compare-container" style="display:none;">
-                <div class="compare-card">
-                    <div class="compare-card-title">
-                        <span>📦 舊檔</span>
-                        <span class="char-count" id="old-char-count-success">(0 字)</span>
-                    </div>
-                    <pre id="old-content-view-success"></pre>
-                </div>
-                <div class="compare-card">
-                    <div class="compare-card-title">
-                        <span>✅ 最終結果</span>
-                        <span class="char-count" id="final-char-count">(0 字)</span>
-                    </div>
-                    <pre id="final-content-view"></pre>
-                </div>
+        <div class="card">
+            <div class="card-title">🗑️ 刪除檔案</div>
+            <div class="danger-warning">
+                ⚠️ 此操作將永久刪除倉庫中的檔案，無法復原。請確認路徑無誤。
             </div>
-
-            <div id="dep-alert" class="dep-alert">
-                <div class="dep-alert-title">⚠️ 連動更新提醒</div>
-                <div>此檔案有依賴其他檔案，請複製下方指令貼回對話，由 AI 為您處理後續更新。</div>
-                <button class="dep-alert-btn" onclick="copyDepCommand()">📋 一鍵複製連動指令</button>
+            <input type="text" id="delete-file-path" placeholder="倉庫名/檔案路徑（如 AI-General/docs/p90/舊檔.md）">
+            <button class="btn-danger" id="btn-delete-file" onclick="deleteFile()">🗑️ 永久刪除檔案</button>
+            <div class="status-box" id="delete-status-box" style="display:none;">
+                <div class="status-dot" id="delete-status-dot"></div>
+                <div id="delete-status-text">等待操作</div>
             </div>
+        </div>
 
-            <button class="btn-success" id="btn-publish" onclick="publishFile(false)">🚀 確認發布到倉庫</button>
-            <button class="btn-primary" id="btn-reset-next" style="display:none; margin-top:10px;" onclick="resetUI()">📝 繼續貼上下一個檔案</button>
-            <button class="btn-primary" style="background:#64748b; margin-top:10px;" onclick="resetUI()">取消</button>
+        <div class="card">
+            <div class="card-title">📚 快捷連結</div>
+            <div class="subtitle">快速複製純文字連結，供 AI 讀取。</div>
+            <button class="btn-primary" onclick="copySystemLinks()" style="margin-bottom: 10px;">📋 複製體系連結（四檔+狀態）</button>
+            <div style="display:flex; gap:10px; margin-bottom: 10px;">
+                <select id="quick-link-project-select" style="flex: 1; margin-bottom: 0;"></select>
+                <button class="btn-success" onclick="copyProjectLinks()" style="width: auto; white-space: nowrap;">📋 複製專案連結</button>
+            </div>
+            <div style="color: #dc2626; font-size: 0.8rem; margin-top: 10px; font-weight: bold;">
+                ⚠️ 連結讀取可能受網路或渲染影響，涉及源碼修改與核心交付時，強烈建議維持上傳實體檔。
+            </div>
         </div>
     </div>
 
-    <div class="card">
-        <div class="card-title">🗑️ 刪除檔案</div>
-        <div class="danger-warning">
-            ⚠️ 此操作將永久刪除倉庫中的檔案，無法復原。請確認路徑無誤。
+    <div id="tab-system" class="main-tab-content">
+        <div class="card">
+            <div class="card-title">🏗️ 建立新專案</div>
+            <input type="text" id="new-repo-name" placeholder="Repo 名稱 (如 AI-WA-NEW)">
+            <div style="display:flex; gap:10px;">
+                <select id="new-repo-domain" style="width:30%; padding:12px; border:1px solid #ccc; border-radius:8px;">
+                    <option value="W">W (Web)</option>
+                    <option value="V">V (VBA)</option>
+                    <option value="D">D (Data)</option>
+                    <option value="M">M (Mobile)</option>
+                    <option value="E">E (Engine)</option>
+                </select>
+                <input type="text" id="new-repo-pkg" placeholder="編號 (如 92)" style="width:30%; margin-bottom:0;">
+                <input type="text" id="new-repo-code" placeholder="代碼 (如 UPGRADE)" style="width:40%; margin-bottom:0;">
+            </div>
+            <input type="text" id="new-repo-display" placeholder="顯示名稱 (如 升級系統)" style="margin-top:10px;">
+            <button class="btn-primary" id="btn-create-repo" onclick="createNewProject()">🚀 一鍵建立專案</button>
         </div>
-        <input type="text" id="delete-file-path" placeholder="倉庫名/檔案路徑（如 AI-General/docs/p90/舊檔.md）">
-        <button class="btn-danger" id="btn-delete-file" onclick="deleteFile()">🗑️ 永久刪除檔案</button>
-        <div class="status-box" id="delete-status-box" style="display:none;">
-            <div class="status-dot" id="delete-status-dot"></div>
-            <div id="delete-status-text">等待操作</div>
+
+        <div class="card">
+            <div class="card-title">🔑 憑證管理中心 (Token)</div>
+            <div style="margin-top: 10px;">
+                <input type="text" id="new-token-name" placeholder="名稱 (如：主要 GitHub)">
+                <input type="password" id="new-token-value" placeholder="Token 字串">
+                <button class="btn-primary" onclick="addToken()">➕ 新增 Token</button>
+                <div style="margin-top: 15px; border-top: 1px solid var(--border);" id="token-list"></div>
+            </div>
         </div>
     </div>
-
-    <div class="card">
-        <div class="card-title">🏗️ 建立新專案</div>
-        <input type="text" id="new-repo-name" placeholder="Repo 名稱 (如 AI-WA-NEW)">
-        <div style="display:flex; gap:10px;">
-            <select id="new-repo-domain" style="width:30%; padding:12px; border:1px solid #ccc; border-radius:8px;">
-                <option value="W">W (Web)</option>
-                <option value="V">V (VBA)</option>
-                <option value="D">D (Data)</option>
-                <option value="M">M (Mobile)</option>
-                <option value="E">E (Engine)</option>
-            </select>
-            <input type="text" id="new-repo-pkg" placeholder="編號 (如 92)" style="width:30%; margin-bottom:0;">
-            <input type="text" id="new-repo-code" placeholder="代碼 (如 UPGRADE)" style="width:40%; margin-bottom:0;">
-        </div>
-        <input type="text" id="new-repo-display" placeholder="顯示名稱 (如 升級系統)" style="margin-top:10px;">
-        <button class="btn-primary" id="btn-create-repo" onclick="createNewProject()">🚀 一鍵建立專案</button>
-    </div>
-
-    <details>
-        <summary>🔑 憑證管理中心 (Token)</summary>
-        <div class="card" style="box-shadow:none; border:none; padding:0; margin-top:10px;">
-            <input type="text" id="new-token-name" placeholder="名稱 (如：主要 GitHub)">
-            <input type="password" id="new-token-value" placeholder="Token 字串">
-            <button class="btn-primary" onclick="addToken()">➕ 新增 Token</button>
-            <div style="margin-top: 15px; border-top: 1px solid var(--border);" id="token-list"></div>
-        </div>
-    </details>
 
 </div>
 </body>
 </html>
 <!-- EOF
 F: AI-infra/index.html
-V: 1793976000
+V: 1794000000
 W: ai-system-010
 EOF -->
