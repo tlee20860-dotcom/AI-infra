@@ -171,42 +171,67 @@
                     }
                 }
 
-                const pkgRes = await fetch(`${PACKAGES_URL}?t=${Date.now()}`);
-                if (pkgRes.ok) {
-                    const pkgData = await pkgRes.json();
-                    const sysSelect = document.getElementById('quick-link-system-select');
-                    sysSelect.innerHTML = '';
-                    if (pkgData.system && pkgData.system.length > 0) {
-                        pkgData.system.forEach(name => {
-                            const opt = document.createElement('option');
-                            opt.value = name;
-                            opt.textContent = `${name}.md`;
-                            sysSelect.appendChild(opt);
-                        });
-                    } else {
-                        sysSelect.innerHTML = '<option value="">無體系檔案</option>';
+                let loadedFromJson = false;
+                try {
+                    const pkgRes = await fetch(`${PACKAGES_URL}?t=${Date.now()}`);
+                    if (pkgRes.ok) {
+                        const pkgData = await pkgRes.json();
+                        if (pkgData && pkgData.system && pkgData.system.length > 0) {
+                            populateSelect('quick-link-system-select', pkgData.system, false);
+                            populateSelect('quick-link-project-select', pkgData.projects, true);
+                            loadedFromJson = true;
+                        }
                     }
+                } catch (e) {
+                    console.warn("packages.json 載入失敗，啟用預設清單");
+                }
 
-                    const projSelect = document.getElementById('quick-link-project-select');
-                    projSelect.innerHTML = '';
-                    if (pkgData.projects && pkgData.projects.length > 0) {
-                        pkgData.projects.forEach(pkgNo => {
-                            const p = projectList.find(item => item.pkg_no === pkgNo) || { code: 'unknown' };
-                            const opt = document.createElement('option');
-                            opt.value = pkgNo;
-                            opt.textContent = `p${pkgNo} (${p.code})`;
-                            projSelect.appendChild(opt);
-                        });
-                    } else {
-                        projSelect.innerHTML = '<option value="">無專案檔案</option>';
-                    }
-                    updateProjectBtnText();
+                if (!loadedFromJson) {
+                    fallbackLists();
                 } else {
-                    document.getElementById('quick-link-system-select').innerHTML = '<option value="">無法載入清單</option>';
-                    document.getElementById('quick-link-project-select').innerHTML = '<option value="">無法載入清單</option>';
+                    updateProjectBtnText();
                 }
             } catch (e) {
                 console.warn("⚠️ 無法載入遠端配置，將使用預設值。", e);
+                fallbackLists();
+            }
+        }
+
+        function fallbackLists() {
+            const defaultSystem = [
+                '00-IP', '01-AP', '02-RP', '03-UP', '04-GC', 
+                '10-WP', '20-SP-Sys', '21-INFRA', '22-Console', 
+                '23-CHK', '24-HISTORY'
+            ];
+            populateSelect('quick-link-system-select', defaultSystem, false);
+
+            const defaultProjects = projectList.map(p => p.pkg_no);
+            if (defaultProjects.length > 0) {
+                populateSelect('quick-link-project-select', defaultProjects, true);
+            } else {
+                document.getElementById('quick-link-project-select').innerHTML = '<option value="">無專案</option>';
+            }
+            updateProjectBtnText();
+        }
+
+        function populateSelect(id, data, isProject) {
+            const select = document.getElementById(id);
+            select.innerHTML = '';
+            if (data && data.length > 0) {
+                data.forEach(item => {
+                    const opt = document.createElement('option');
+                    if (isProject) {
+                        opt.value = item;
+                        const p = projectList.find(x => x.pkg_no === item) || { code: 'unknown' };
+                        opt.textContent = `p${item} (${p.code})`;
+                    } else {
+                        opt.value = item;
+                        opt.textContent = `${item}.md`;
+                    }
+                    select.appendChild(opt);
+                });
+            } else {
+                select.innerHTML = '<option value="">無檔案</option>';
             }
         }
 
@@ -1184,6 +1209,6 @@
 </html>
 <!-- EOF
 F: AI-infra/index.html
-V: 1794032400
+V: 1794040000
 W: ai-system-010
 EOF -->
