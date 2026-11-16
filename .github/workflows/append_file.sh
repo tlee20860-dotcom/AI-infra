@@ -24,13 +24,14 @@ echo "" >> "$TARGET"
 # 取得副檔名
 EXT="${SOURCE##*.}"
 
-# 寫入檔案內容（防呆：如果是 .md 檔且內部有三反引號，跳過包裹；其他副檔名一律強制包裹）
-if [ "$EXT" = "md" ] && grep -q '\`\`\`' "$SOURCE"; then
+# 寫入檔案內容（防呆：如果是 .md 檔且內部有三反引號或波浪號，跳過包裹；其他副檔名一律強制包裹）
+if [ "$EXT" = "md" ] && grep -qE '(\`\`\`|~~~)' "$SOURCE"; then
     cat "$SOURCE" >> "$TARGET"
 else
-    echo "\`\`\`$EXT" >> "$TARGET"
+    # 使用 ~~~ 作為外層包裹，避免與內部的三反引號衝突
+    echo "~~~$EXT" >> "$TARGET"
     cat "$SOURCE" >> "$TARGET"
-    echo "\`\`\`" >> "$TARGET"
+    echo "~~~" >> "$TARGET"
 fi
 
 # 寫入結束標記
@@ -39,6 +40,6 @@ echo "<!-- === FILE END: $SOURCE === -->" >> "$TARGET"
 
 # ═══ EOF ═══
 # F: AI-infra/.github/workflows/append_file.sh
-# V: 1792383600
-# W: ai-system-20261019-011#004
+# V: 1794118000
+# W: ai-system-010
 # ═══ EOF ═══
