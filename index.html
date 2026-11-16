@@ -82,6 +82,7 @@
         const CONFIG_URL = `https://raw.githubusercontent.com/${OWNER}/AI-kernel/main/docs/r-rules/validate-config.json`;
         const FORBIDDEN_URL = `https://raw.githubusercontent.com/${OWNER}/AI-kernel/main/docs/r-rules/forbidden_words.txt`;
         const REPOS_URL = `https://raw.githubusercontent.com/${OWNER}/AI-infra/main/config/repos.json`;
+        const PACKAGES_URL = `https://raw.githubusercontent.com/${OWNER}/AI-packages/main/packages.json`;
 
         const DEPENDENCY_MAP = {
             "AI-kernel/docs/r-rules/R-00-rules.md": [
@@ -156,29 +157,92 @@
                     if (reposData.projects) {
                         projectList = reposData.projects;
                         const deploySelect = document.getElementById('deploy-repo-select');
-                        const linkSelect = document.getElementById('quick-link-project-select');
                         deploySelect.innerHTML = '';
-                        linkSelect.innerHTML = '';
                         projectList.forEach(p => {
                             const repoName = p.repo.split('/')[1];
                             if (repoName && !allowedRepos.includes(repoName)) {
                                 allowedRepos.push(repoName);
                             }
-                            const opt1 = document.createElement('option');
-                            opt1.value = repoName;
-                            opt1.textContent = `${p.display} (${repoName})`;
-                            deploySelect.appendChild(opt1);
-
-                            const opt2 = document.createElement('option');
-                            opt2.value = p.pkg_no;
-                            opt2.textContent = `p${p.pkg_no} (${p.code})`;
-                            linkSelect.appendChild(opt2);
+                            const opt = document.createElement('option');
+                            opt.value = repoName;
+                            opt.textContent = `${p.display} (${repoName})`;
+                            deploySelect.appendChild(opt);
                         });
                     }
+                }
+
+                const pkgRes = await fetch(`${PACKAGES_URL}?t=${Date.now()}`);
+                if (pkgRes.ok) {
+                    const pkgData = await pkgRes.json();
+                    const sysSelect = document.getElementById('quick-link-system-select');
+                    sysSelect.innerHTML = '';
+                    if (pkgData.system && pkgData.system.length > 0) {
+                        pkgData.system.forEach(name => {
+                            const opt = document.createElement('option');
+                            opt.value = name;
+                            opt.textContent = `${name}.md`;
+                            sysSelect.appendChild(opt);
+                        });
+                    } else {
+                        sysSelect.innerHTML = '<option value="">無體系檔案</option>';
+                    }
+
+                    const projSelect = document.getElementById('quick-link-project-select');
+                    projSelect.innerHTML = '';
+                    if (pkgData.projects && pkgData.projects.length > 0) {
+                        pkgData.projects.forEach(pkgNo => {
+                            const p = projectList.find(item => item.pkg_no === pkgNo) || { code: 'unknown' };
+                            const opt = document.createElement('option');
+                            opt.value = pkgNo;
+                            opt.textContent = `p${pkgNo} (${p.code})`;
+                            projSelect.appendChild(opt);
+                        });
+                    } else {
+                        projSelect.innerHTML = '<option value="">無專案檔案</option>';
+                    }
+                    updateProjectBtnText();
+                } else {
+                    document.getElementById('quick-link-system-select').innerHTML = '<option value="">無法載入清單</option>';
+                    document.getElementById('quick-link-project-select').innerHTML = '<option value="">無法載入清單</option>';
                 }
             } catch (e) {
                 console.warn("⚠️ 無法載入遠端配置，將使用預設值。", e);
             }
+        }
+
+        function updateProjectBtnText() {
+            const pkgNo = document.getElementById('quick-link-project-select').value;
+            const btn = document.getElementById('btn-proj-full');
+            if (pkgNo) {
+                btn.textContent = `📋 複製 p${pkgNo} 完整包`;
+            } else {
+                btn.textContent = `📋 複製完整包`;
+            }
+        }
+
+        function copySpecificSystemLink() {
+            const sysName = document.getElementById('quick-link-system-select').value;
+            if (!sysName) return alert('請選擇體系檔案');
+            const url = `https://raw.githubusercontent.com/${OWNER}/AI-packages/main/${sysName}.md`;
+            navigator.clipboard.writeText(url).then(() => alert(`已複製 ${sysName} 連結`));
+        }
+
+        function copyProjectPackage() {
+            const pkgNo = document.getElementById('quick-link-project-select').value;
+            if (!pkgNo) return alert('請選擇專案');
+            const base = `https://raw.githubusercontent.com/${OWNER}/AI-packages/main/`;
+            const text = `請讀取以下專案完整包檔案：\n\n` +
+                         `[專案狀態] ${base}${pkgNo}-SP.md\n` +
+                         `[專案技術] ${base}${pkgNo}-P.md\n` +
+                         `[專案代碼] ${base}${pkgNo}-Code.md`;
+            navigator.clipboard.writeText(text).then(() => alert(`已複製 p${pkgNo} 完整包連結`));
+        }
+
+        function copyProjectSingle(type) {
+            const pkgNo = document.getElementById('quick-link-project-select').value;
+            if (!pkgNo) return alert('請選擇專案');
+            const url = `https://raw.githubusercontent.com/${OWNER}/AI-packages/main/${pkgNo}-${type}.md`;
+            navigator.clipboard.writeText(url).then(() => alert(`已複製 p${pkgNo}-${type} 連結`));
         }
 
         function loadTokens() {
@@ -261,27 +325,6 @@
                 throw new Error(errMsg);
             }
             return res.status === 204 ? null : await res.json();
-        }
-
-        function copySystemLinks() {
-            const base = `https://raw.githubusercontent.com/${OWNER}/AI-packages/main/`;
-            const text = `請讀取以下體系檔案：\n\n` +
-                         `[00-IP.md] ${base}00-IP.md\n` +
-                         `[01-AP.md] ${base}01-AP.md\n` +
-                         `[02-RP.md] ${base}02-RP.md\n` +
-                         `[03-UP.md] ${base}03-UP.md\n` +
-                         `[20-SP-Sys.md] ${base}20-SP-Sys.md`;
-            navigator.clipboard.writeText(text).then(() => alert('已複製體系連結清單'));
-        }
-
-        function copyProjectLinks() {
-            const pkgNo = document.getElementById('quick-link-project-select').value;
-            if (!pkgNo) return alert('請選擇專案');
-            const base = `https://raw.githubusercontent.com/${OWNER}/AI-packages/main/`;
-            const text = `請讀取以下專案檔案：\n\n` +
-                         `[專案狀態包] ${base}${pkgNo}-SP.md\n` +
-                         `[專案代碼包] ${base}${pkgNo}-Code.md`;
-            navigator.clipboard.writeText(text).then(() => alert('已複製專案連結清單'));
         }
 
         async function triggerBuild() {
@@ -1078,11 +1121,28 @@
         <div class="card">
             <div class="card-title">📚 快捷連結</div>
             <div class="subtitle">快速複製純文字連結，供 AI 讀取。</div>
-            <button class="btn-primary" onclick="copySystemLinks()" style="margin-bottom: 10px;">📋 複製體系連結（四檔+狀態）</button>
+            
+            <!-- 體系連結 -->
             <div style="display:flex; gap:10px; margin-bottom: 10px;">
-                <select id="quick-link-project-select" style="flex: 1; margin-bottom: 0;"></select>
-                <button class="btn-success" onclick="copyProjectLinks()" style="width: auto; white-space: nowrap;">📋 複製專案連結</button>
+                <select id="quick-link-system-select" style="flex: 1; margin-bottom: 0;">
+                    <option value="">載入體系清單中...</option>
+                </select>
+                <button class="btn-primary" onclick="copySpecificSystemLink()" style="width: auto; white-space: nowrap;">📋 複製連結</button>
             </div>
+
+            <!-- 專案連結 -->
+            <div style="display:flex; gap:10px; margin-bottom: 10px;">
+                <select id="quick-link-project-select" style="flex: 1; margin-bottom: 0;" onchange="updateProjectBtnText()">
+                    <option value="">載入專案中...</option>
+                </select>
+                <button class="btn-success" onclick="copyProjectPackage()" style="width: auto; white-space: nowrap;" id="btn-proj-full">📋 複製完整包</button>
+            </div>
+            <div style="display:flex; gap:10px; margin-bottom: 10px;">
+                <button class="btn-primary btn-small" style="flex:1" onclick="copyProjectSingle('SP')">僅 SP</button>
+                <button class="btn-primary btn-small" style="flex:1" onclick="copyProjectSingle('P')">僅 P</button>
+                <button class="btn-primary btn-small" style="flex:1" onclick="copyProjectSingle('Code')">僅 Code</button>
+            </div>
+            
             <div style="color: #dc2626; font-size: 0.8rem; margin-top: 10px; font-weight: bold;">
                 ⚠️ 連結讀取可能受網路或渲染影響，涉及源碼修改與核心交付時，強烈建議維持上傳實體檔。
             </div>
@@ -1124,6 +1184,6 @@
 </html>
 <!-- EOF
 F: AI-infra/index.html
-V: 1794000000
+V: 1794032400
 W: ai-system-010
 EOF -->
